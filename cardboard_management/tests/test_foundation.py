@@ -16,11 +16,20 @@ class TestFoundation(unittest.TestCase):
 		self.assertEqual((package / "modules.txt").read_text().splitlines(), ["Cardboard Management"])
 		self.assertIsNotNone(importlib.import_module("cardboard_management.cardboard_management"))
 
-	def test_foundation_has_no_business_event_or_migration_hooks(self):
+	def test_foundation_has_no_core_overrides_or_background_business_hooks(self):
 		for name in (
-			"doc_events", "scheduler_events", "override_doctype_class",
-			"override_whitelisted_methods", "fixtures", "before_install",
-			"after_install", "before_migrate", "after_migrate",
+			"doc_events",
+			"scheduler_events",
+			"override_doctype_class",
+			"override_whitelisted_methods",
+			"fixtures",
+			"before_install",
+			"before_migrate",
 		):
 			with self.subTest(hook=name):
 				self.assertFalse(getattr(hooks, name, None))
+
+	def test_install_and_migrate_hooks_own_standard_schema_extensions(self):
+		expected = "cardboard_management.setup.ensure_purchase_invoice_integration_schema"
+		self.assertEqual(hooks.after_install, expected)
+		self.assertEqual(hooks.after_migrate, expected)

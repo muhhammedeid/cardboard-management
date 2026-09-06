@@ -31,10 +31,13 @@ remains gross minus tare. Optional Kg or percentage discounts produce a separate
 calculation are authoritative. The DocType is submittable and uses
 `CS-.YYYY.-.#####` naming.
 
-Submitting a Cardboard Supply currently creates no Purchase Invoice, Purchase
-Receipt, stock ledger entry, GL entry, payment, workflow, or dashboard. ERPNext
-remains authoritative for those domains when later phases explicitly integrate
-them.
+Submitting a Cardboard Supply creates and submits exactly one standard ERPNext
+Purchase Invoice with **Update Stock** enabled. The invoice receives physical
+`net_weight` as stock quantity while its effective unit rate preserves
+`total_amount` as the supplier liability. ERPNext remains authoritative for the
+stock ledger, valuation, and GL entries. Cancelling the supply first cancels its
+linked Purchase Invoice, reversing those effects. No Purchase Receipt, separate
+Stock Entry, custom GL entry, or Payment Entry is created.
 
 ## Installation and migration
 
@@ -67,11 +70,12 @@ Installation is a one-time step. Stop any existing development bench before
 starting another instance on the same ports.
 
 The app uses the standard Bench-generated package and `modules.txt` declaration.
-There are no custom install/migration hooks, fixtures, or data patches.
-`patches.txt` retains the standard empty migration sections. DocType schema
-changes stay within this app and are applied through `bench migrate`. Future
-idempotent patches must also remain isolated here. Do not use core edits or
-manual database changes as an installation requirement.
+An idempotent custom-app install/migration hook adds the Purchase Invoice back
+reference and configures nine-decimal Purchase Invoice Item rate precision.
+Financial amounts still follow ERPNext/company currency precision. `patches.txt`
+retains the standard empty migration sections. All schema extensions and future
+patches must remain isolated here; core edits and manual database changes are
+not installation requirements.
 
 ## Tests
 
@@ -90,14 +94,16 @@ bench --site <test-site> run-tests --app cardboard_management \
   --skip-test-records --skip-before-tests
 ```
 
-Tests cover the app foundation and Cardboard Supply calculations, validation,
-schema, save/submit behavior, and absence of ERP accounting or stock side
-effects. Frappe tests use transactions and roll back temporary records. Run them
-only on a local development or dedicated test site with `allow_tests` enabled.
+Tests cover the app foundation, weight calculations, validation, Purchase Invoice
+mapping and idempotency, physical stock quantity, supplier liability, migration
+schema, and cancellation reversal. Frappe tests use transactions and roll back
+temporary records. Run them only on a local development or dedicated test site
+with `allow_tests` enabled.
 
 ## Layout
 
-- `cardboard_management/hooks.py`: app metadata and ERPNext dependency.
+- `cardboard_management/hooks.py`: app metadata, ERPNext dependency, and migration hooks.
+- `cardboard_management/setup.py`: idempotent standard-DocType schema extensions.
 - `cardboard_management/modules.txt`: Cardboard Management module declaration.
 - `cardboard_management/cardboard_management/`: business DocTypes and controllers.
 - `cardboard_management/tests/`: foundation tests.

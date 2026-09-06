@@ -25,10 +25,14 @@ class TestCardboardSupply(FrappeTestCase):
 				}
 			).insert()
 
-		cls.item = frappe.db.get_value("Item", {"disabled": 0}, "name")
-		cls.warehouse = frappe.db.get_value("Warehouse", {"disabled": 0, "is_group": 0}, "name")
+		cls.item = frappe.db.get_value(
+			"Item", {"disabled": 0, "is_stock_item": 1, "stock_uom": "Kg"}, "name"
+		)
+		cls.warehouse = frappe.db.get_value(
+			"Warehouse", {"disabled": 0, "is_group": 0, "company": ("is", "set")}, "name"
+		)
 		if not cls.item or not cls.warehouse:
-			raise AssertionError("Cardboard Supply tests require one enabled Item and non-group Warehouse")
+			raise AssertionError("Cardboard Supply tests require one enabled Kg stock Item and valid Warehouse")
 
 	def make_supply(self, **overrides):
 		values = {
@@ -110,14 +114,46 @@ class TestCardboardSupply(FrappeTestCase):
 
 		self.assertEqual(supply.docstatus, 1)
 
+	def test_submit_creates_submitted_purchase_invoice_with_physical_stock_qty(self):
+		supply = self.make_supply(
+			gross_weight=1150,
+			tare_weight=250,
+			discount_type="Kg",
+			discount_value=50,
+			rate_per_kg=6.5,
+		).insert()
+		supply.submit()
+
+		self.assertTrue(supply.purchase_invoice)
+		purchase_invoice = frappe.get_doc("Purchase Invoice", supply.purchase_invoice)
+		self.assertEqual(purchase_invoice.docstatus, 1)
+		self.assertEqual(purchase_invoice.update_stock, 1)
+		self.assertEqual(len(purchase_invoice.items), 1)
+		self.assertEqual(purchase_invoice.items[0].qty, 900)
+		self.assertEqual(purchase_invoice.items[0].stock_qty, 900)
+		self.assertAlmostEqual(purchase_invoice.items[0].rate, 5525 / 900, places=9)
+		self.assertEqual(purchase_invoice.items[0].amount, 5525)
+		self.assertEqual(purchase_invoice.grand_total, 5525)
+		self.assertEqual(purchase_invoice.supplier, supply.supplier)
+		self.assertEqual(purchase_invoice.posting_date, getdate(supply.posting_date))
+		self.assertEqual(
+			purchase_invoice.company,
+			frappe.db.get_value("Warehouse", supply.warehouse, "company"),
+		)
+		self.assertEqual(purchase_invoice.items[0].item_code, supply.item)
+		self.assertEqual(purchase_invoice.items[0].warehouse, supply.warehouse)
+		self.assertEqual(purchase_invoice.items[0].uom, "Kg")
+		self.assertEqual(purchase_invoice.custom_cardboard_supply, supply.name)
+		self.assertIn(supply.name, purchase_invoice.remarks)
+
 	def test_zero_tare_and_zero_rate_are_valid(self):
 		supply = self.make_supply(gross_weight=100, tare_weight=0, rate_per_kg=0).insert()
 
 		self.assertEqual(supply.net_weight, 100)
 		self.assertEqual(supply.total_amount, 0)
 
-	def test_submit_creates_no_erp_transactions(self):
-		doctypes = ("Purchase Invoice", "Purchase Receipt", "Stock Ledger Entry", "GL Entry")
+	def test_submit_does_not_create_separate_receipt_or_stock_entry(self):
+		doctypes = ("Purchase Receipt", "Stock Entry")
 		counts_before = {doctype: frappe.db.count(doctype) for doctype in doctypes}
 
 		self.make_supply().insert().submit()
@@ -166,6 +202,196 @@ class TestCardboardSupply(FrappeTestCase):
 		with self.assertRaisesRegex(frappe.ValidationError, "Rate per Kg cannot be negative"):
 			self.make_supply(rate_per_kg=-0.01).validate()
 
+	def test_stock_ledger_and_supplier_payable_use_different_weight_semantics(self):
+		supply = self.make_supply(
+			gross_weight=1150,
+			tare_weight=250,
+			discount_type="Kg",
+			discount_value=50,
+			rate_per_kg=6.5,
+		).insert()
+		supply.submit()
+
+		stock_quantity = frappe.db.sql(
+			"""select coalesce(sum(actual_qty), 0)
+			from `tabStock Ledger Entry`
+			where voucher_type = %s and voucher_no = %s""",
+			("Purchase Invoice", supply.purchase_invoice),
+		)[0][0]
+		payable_entries = frappe.get_all(
+			"GL Entry",
+			filters={
+				"voucher_type": "Purchase Invoice",
+				"voucher_no": supply.purchase_invoice,
+				"party_type": "Supplier",
+				"party": supply.supplier,
+				"is_cancelled": 0,
+			},
+			fields=["credit", "debit"],
+		)
+
+		self.assertEqual(stock_quantity, 900)
+		self.assertEqual(sum(row.credit - row.debit for row in payable_entries), 5525)
+
+	def test_all_discount_modes_receive_physical_net_weight_into_stock(self):
+		for discount_type, discount_value in (
+			("No Discount", 0),
+			("Kg", 100),
+			("Percentage", 10),
+		):
+			with self.subTest(discount_type=discount_type):
+				supply = self.make_supply(
+					discount_type=discount_type,
+					discount_value=discount_value,
+				).insert()
+				supply.submit()
+				stock_quantity = frappe.db.sql(
+					"""select coalesce(sum(actual_qty), 0)
+					from `tabStock Ledger Entry`
+					where voucher_type = %s and voucher_no = %s""",
+					("Purchase Invoice", supply.purchase_invoice),
+				)[0][0]
+				self.assertEqual(stock_quantity, supply.net_weight)
+
+	def test_purchase_invoice_creation_is_idempotent(self):
+		supply = self.make_supply().insert()
+		supply.submit()
+		linked_name = supply.purchase_invoice
+
+		first_retry = supply.create_purchase_invoice()
+		frappe.db.set_value("Cardboard Supply", supply.name, "purchase_invoice", None)
+		supply.purchase_invoice = None
+		second_retry = supply.create_purchase_invoice()
+
+		self.assertEqual(first_retry.name, linked_name)
+		self.assertEqual(second_retry.name, linked_name)
+		self.assertEqual(
+			frappe.db.count("Purchase Invoice", {"custom_cardboard_supply": supply.name}),
+			1,
+		)
+
+	def test_retry_rejects_a_tampered_linked_purchase_invoice(self):
+		supply = self.make_supply().insert()
+		supply.submit()
+		item_row = frappe.db.get_value(
+			"Purchase Invoice Item",
+			{"parent": supply.purchase_invoice},
+			"name",
+		)
+		frappe.db.set_value("Purchase Invoice Item", item_row, "qty", 1, update_modified=False)
+
+		with self.assertRaisesRegex(frappe.ValidationError, "does not match Cardboard Supply"):
+			supply.create_purchase_invoice()
+
+	def test_draft_supply_cannot_create_purchase_invoice(self):
+		supply = self.make_supply().insert()
+		with self.assertRaisesRegex(
+			frappe.ValidationError,
+			"Cardboard Supply must be submitted",
+		):
+			supply.create_purchase_invoice()
+
+	def test_invalid_warehouse_company_relation_is_rejected_safely(self):
+		original_company = frappe.db.get_value("Warehouse", self.warehouse, "company")
+		try:
+			frappe.db.set_value("Warehouse", self.warehouse, "company", None, update_modified=False)
+			with self.assertRaisesRegex(frappe.ValidationError, "Warehouse must belong to a valid Company"):
+				self.make_supply().insert().submit()
+		finally:
+			frappe.db.set_value(
+				"Warehouse", self.warehouse, "company", original_company, update_modified=False
+			)
+
+	def test_non_stock_item_is_rejected(self):
+		item_code = "_Test Cardboard Supply Non Stock Item"
+		if not frappe.db.exists("Item", item_code):
+			item_group = frappe.db.get_value("Item Group", {"is_group": 0}, "name")
+			frappe.get_doc(
+				{
+					"doctype": "Item",
+					"item_code": item_code,
+					"item_name": item_code,
+					"item_group": item_group,
+					"stock_uom": "Kg",
+					"is_stock_item": 0,
+					"is_purchase_item": 1,
+				}
+			).insert()
+
+		with self.assertRaisesRegex(frappe.ValidationError, "Item must maintain stock"):
+			self.make_supply(item=item_code).insert().submit()
+
+	def test_item_with_incompatible_stock_uom_is_rejected(self):
+		item_code = "_Test Cardboard Supply Non Kg Item"
+		if not frappe.db.exists("Item", item_code):
+			item_group = frappe.db.get_value("Item Group", {"is_group": 0}, "name")
+			frappe.get_doc(
+				{
+					"doctype": "Item",
+					"item_code": item_code,
+					"item_name": item_code,
+					"item_group": item_group,
+					"stock_uom": "Nos",
+					"is_stock_item": 1,
+					"is_purchase_item": 1,
+				}
+			).insert()
+
+		with self.assertRaisesRegex(frappe.ValidationError, "Item Stock UOM must be Kg"):
+			self.make_supply(item=item_code).insert().submit()
+
+	def test_disabled_supplier_is_rejected(self):
+		try:
+			frappe.db.set_value("Supplier", self.supplier, "disabled", 1, update_modified=False)
+			with self.assertRaisesRegex(frappe.ValidationError, "Supplier must exist and be enabled"):
+				self.make_supply().insert().submit()
+		finally:
+			frappe.db.set_value("Supplier", self.supplier, "disabled", 0, update_modified=False)
+
+	def test_cancellation_cancels_invoice_and_reverses_stock_and_payable(self):
+		bin_filters = {"item_code": self.item, "warehouse": self.warehouse}
+		quantity_before = frappe.db.get_value("Bin", bin_filters, "actual_qty") or 0
+		supply = self.make_supply(
+			gross_weight=1150,
+			tare_weight=250,
+			discount_type="Percentage",
+			discount_value=100 / 9,
+			rate_per_kg=6.5,
+		).insert()
+		supply.submit()
+		linked_name = supply.purchase_invoice
+		self.assertEqual(
+			frappe.db.get_value("Bin", bin_filters, "actual_qty") - quantity_before,
+			900,
+		)
+
+		supply.cancel()
+
+		self.assertEqual(frappe.db.get_value("Purchase Invoice", linked_name, "docstatus"), 2)
+		self.assertEqual(frappe.db.get_value("Bin", bin_filters, "actual_qty") or 0, quantity_before)
+		self.assertEqual(
+			frappe.db.count(
+				"GL Entry",
+				{
+					"voucher_type": "Purchase Invoice",
+					"voucher_no": linked_name,
+					"party_type": "Supplier",
+					"party": supply.supplier,
+					"is_cancelled": 0,
+				},
+			),
+			0,
+		)
+
+	def test_zero_total_supply_can_submit_with_zero_valuation(self):
+		supply = self.make_supply(rate_per_kg=0).insert()
+		supply.submit()
+
+		purchase_invoice = frappe.get_doc("Purchase Invoice", supply.purchase_invoice)
+		self.assertEqual(purchase_invoice.grand_total, 0)
+		self.assertEqual(purchase_invoice.items[0].qty, supply.net_weight)
+		self.assertEqual(purchase_invoice.items[0].allow_zero_valuation_rate, 1)
+
 	def test_client_exposes_device_neutral_scale_capture_extension_points(self):
 		client_script = Path(__file__).with_name("cardboard_supply.js").read_text()
 
@@ -196,6 +422,7 @@ class TestCardboardSupply(FrappeTestCase):
 			"payable_weight": ("Float", None, False, True),
 			"rate_per_kg": ("Currency", None, True, False),
 			"total_amount": ("Currency", None, False, True),
+			"purchase_invoice": ("Link", "Purchase Invoice", False, True),
 			"vehicle_no": ("Data", None, False, False),
 			"driver_name": ("Data", None, False, False),
 			"weight_ticket": ("Attach", None, False, False),
@@ -216,3 +443,15 @@ class TestCardboardSupply(FrappeTestCase):
 			"eval:doc.discount_type != 'No Discount'",
 		)
 		self.assertFalse(any(field.fieldtype == "Table" for field in meta.fields))
+
+		purchase_invoice_field = frappe.get_meta("Purchase Invoice").get_field(
+			"custom_cardboard_supply"
+		)
+		self.assertEqual(purchase_invoice_field.fieldtype, "Link")
+		self.assertEqual(purchase_invoice_field.options, "Cardboard Supply")
+		self.assertTrue(purchase_invoice_field.read_only)
+		self.assertTrue(purchase_invoice_field.unique)
+		self.assertEqual(
+			frappe.get_meta("Purchase Invoice Item").get_field("rate").precision,
+			9,
+		)
