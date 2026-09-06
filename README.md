@@ -11,9 +11,8 @@ A custom Frappe v15 app for a small local cardboard recycling and trading ERP.
 All custom code belongs in `apps/cardboard_management`. Do not modify
 `apps/frappe` or `apps/erpnext`.
 
-P00-W01 establishes the app package and the **Cardboard Management** module only.
-It adds no Cardboard Supply DocType, accounting or stock logic, dashboards,
-workflows, business records, or business rules.
+The foundation history is documented in `docs/P00-W01.md`. Current business
+features are listed below.
 
 ## Requirements
 
@@ -26,9 +25,11 @@ workflows, business records, or business rules.
 ### Cardboard Supply
 
 `Cardboard Supply` records one cardboard Item per transaction, measured in Kg,
-against a standard ERPNext Supplier and Warehouse. The server calculates net
-weight and total amount and validates the weight and rate boundaries. The
-DocType is submittable and uses `CS-.YYYY.-.#####` naming.
+against a standard ERPNext Supplier and Warehouse. Physical `net_weight` always
+remains gross minus tare. Optional Kg or percentage discounts produce a separate
+`payable_weight`, and total amount uses payable weight. Server validation and
+calculation are authoritative. The DocType is submittable and uses
+`CS-.YYYY.-.#####` naming.
 
 Submitting a Cardboard Supply currently creates no Purchase Invoice, Purchase
 Receipt, stock ledger entry, GL entry, payment, workflow, or dashboard. ERPNext
@@ -66,11 +67,11 @@ Installation is a one-time step. Stop any existing development bench before
 starting another instance on the same ports.
 
 The app uses the standard Bench-generated package and `modules.txt` declaration.
-There are no custom install/migration hooks, fixtures, schema changes, or data
-patches. `patches.txt` retains the standard empty migration sections. Future
-schema changes and idempotent patches must stay within this app and be verified
-with repeated migrations. Do not use core edits or manual database changes as
-an installation requirement.
+There are no custom install/migration hooks, fixtures, or data patches.
+`patches.txt` retains the standard empty migration sections. DocType schema
+changes stay within this app and are applied through `bench migrate`. Future
+idempotent patches must also remain isolated here. Do not use core edits or
+manual database changes as an installation requirement.
 
 ## Tests
 
@@ -89,16 +90,16 @@ bench --site <test-site> run-tests --app cardboard_management \
   --skip-test-records --skip-before-tests
 ```
 
-Tests cover the ERPNext dependency, module declaration/import, and absence of
-business event and migration hooks. Place future tests in the app package; use
-Frappe's test conventions for future DocTypes. Do not run record-creating tests
-against a business-data site.
+Tests cover the app foundation and Cardboard Supply calculations, validation,
+schema, save/submit behavior, and absence of ERP accounting or stock side
+effects. Frappe tests use transactions and roll back temporary records. Run them
+only on a local development or dedicated test site with `allow_tests` enabled.
 
 ## Layout
 
 - `cardboard_management/hooks.py`: app metadata and ERPNext dependency.
 - `cardboard_management/modules.txt`: Cardboard Management module declaration.
-- `cardboard_management/cardboard_management/`: business module package, empty for now.
+- `cardboard_management/cardboard_management/`: business DocTypes and controllers.
 - `cardboard_management/tests/`: foundation tests.
 - `cardboard_management/patches.txt` and `patches/`: standard migration structure.
 - `cardboard_management/public/`, `templates/`, `config/`: standard scaffold.

@@ -16,6 +16,12 @@
   "tare_weight",
   "column_break_weights",
   "net_weight",
+  "discount_section",
+  "discount_type",
+  "discount_value",
+  "column_break_discount",
+  "discount_weight",
+  "payable_weight",
   "pricing_section",
   "rate_per_kg",
   "column_break_pricing",
@@ -100,6 +106,41 @@
    "in_list_view": 1
   },
   {
+   "fieldname": "discount_section",
+   "fieldtype": "Section Break",
+   "label": "Supplier Weight Discount"
+  },
+  {
+   "default": "No Discount",
+   "fieldname": "discount_type",
+   "fieldtype": "Select",
+   "label": "Discount Type",
+   "options": "No Discount\nKg\nPercentage"
+  },
+  {
+   "depends_on": "eval:doc.discount_type != 'No Discount'",
+   "fieldname": "discount_value",
+   "fieldtype": "Float",
+   "label": "Discount Value"
+  },
+  {
+   "fieldname": "column_break_discount",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "discount_weight",
+   "fieldtype": "Float",
+   "label": "Discount Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "payable_weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Payable Weight",
+   "read_only": 1
+  },
+  {
    "fieldname": "pricing_section",
    "fieldtype": "Section Break",
    "label": "Pricing"
@@ -174,7 +215,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-09-06 00:00:00.000000",
+ "modified": "2026-09-06 12:26:42.173227",
  "modified_by": "Administrator",
  "module": "Cardboard Management",
  "name": "Cardboard Supply",
