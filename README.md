@@ -21,6 +21,20 @@ workflows, business records, or business rules.
 - This foundation was created on Frappe 15.120.0 and ERPNext 15.121.0.
 - ERPNext is declared in `required_apps`; this app does not replace ERPNext.
 
+## Current business model
+
+### Cardboard Supply
+
+`Cardboard Supply` records one cardboard Item per transaction, measured in Kg,
+against a standard ERPNext Supplier and Warehouse. The server calculates net
+weight and total amount and validates the weight and rate boundaries. The
+DocType is submittable and uses `CS-.YYYY.-.#####` naming.
+
+Submitting a Cardboard Supply currently creates no Purchase Invoice, Purchase
+Receipt, stock ledger entry, GL entry, payment, workflow, or dashboard. ERPNext
+remains authoritative for those domains when later phases explicitly integrate
+them.
+
 ## Installation and migration
 
 Run from `/home/twenty/frappe/cardboard-bench`, with the existing Bench, Node,
