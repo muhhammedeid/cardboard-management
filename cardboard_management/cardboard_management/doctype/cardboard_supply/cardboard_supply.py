@@ -14,8 +14,37 @@ class CardboardSupply(Document):
 		self.calculate_discount_and_payable_weight()
 		self.calculate_total_amount()
 
+	def onload(self):
+		self.refresh_payment_summary()
+
 	def on_submit(self):
 		self.create_purchase_invoice()
+
+	def refresh_payment_summary(self):
+		self.purchase_invoice_outstanding = None
+		self.payment_status = None
+		if not self.purchase_invoice or not frappe.db.exists("Purchase Invoice", self.purchase_invoice):
+			return
+
+		purchase_invoice = frappe.get_doc("Purchase Invoice", self.purchase_invoice)
+		if (
+			purchase_invoice.docstatus != 1
+			or purchase_invoice.custom_cardboard_supply != self.name
+			or purchase_invoice.supplier != self.supplier
+			or not purchase_invoice.has_permission("read")
+		):
+			return
+
+		precision = purchase_invoice.precision("outstanding_amount")
+		outstanding = flt(purchase_invoice.outstanding_amount, precision)
+		grand_total = flt(purchase_invoice.grand_total, precision)
+		self.purchase_invoice_outstanding = outstanding
+		if outstanding <= 0:
+			self.payment_status = "Paid"
+		elif outstanding >= grand_total:
+			self.payment_status = "Unpaid"
+		else:
+			self.payment_status = "Partially Paid"
 
 	def before_cancel(self):
 		self.cancel_purchase_invoice()
@@ -93,6 +122,56 @@ class CardboardSupply(Document):
 		purchase_invoice.submit()
 		self._validate_purchase_invoice_mapping(purchase_invoice, context)
 		self._set_purchase_invoice_link(purchase_invoice.name)
+		return purchase_invoice
+
+	@frappe.whitelist()
+	def make_payment_entry(self, bank_account):
+		if not self.name or not frappe.db.exists("Cardboard Supply", self.name):
+			frappe.throw(_("Cardboard Supply must be saved before recording payment"))
+		supply = frappe.get_doc("Cardboard Supply", self.name)
+		supply.check_permission("read")
+		purchase_invoice = supply._get_payable_purchase_invoice()
+		account = frappe.db.get_value(
+			"Account",
+			bank_account,
+			["name", "company", "account_type", "is_group", "disabled"],
+			as_dict=True,
+		)
+		if (
+			not account
+			or account.company != purchase_invoice.company
+			or account.account_type not in ("Cash", "Bank")
+			or account.is_group
+			or account.disabled
+		):
+			frappe.throw(_("Select an enabled Cash or Bank account for the Purchase Invoice company"))
+
+		from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
+
+		return get_payment_entry(
+			"Purchase Invoice",
+			purchase_invoice.name,
+			bank_account=account.name,
+		)
+
+	def _get_payable_purchase_invoice(self):
+		if self.docstatus != 1:
+			frappe.throw(_("Cardboard Supply must be submitted before recording payment"))
+		if not self.purchase_invoice or not frappe.db.exists("Purchase Invoice", self.purchase_invoice):
+			frappe.throw(_("A linked Purchase Invoice is required before recording payment"))
+
+		purchase_invoice = frappe.get_doc("Purchase Invoice", self.purchase_invoice)
+		if purchase_invoice.docstatus != 1:
+			frappe.throw(_("Linked Purchase Invoice must be submitted and not cancelled"))
+		if purchase_invoice.custom_cardboard_supply != self.name:
+			frappe.throw(_("Linked Purchase Invoice does not belong to this Cardboard Supply"))
+		if purchase_invoice.supplier != self.supplier:
+			frappe.throw(_("Linked Purchase Invoice supplier does not match Cardboard Supply"))
+		if flt(
+			purchase_invoice.outstanding_amount,
+			purchase_invoice.precision("outstanding_amount"),
+		) <= 0:
+			frappe.throw(_("Linked Purchase Invoice is already fully paid"))
 		return purchase_invoice
 
 	def cancel_purchase_invoice(self):

@@ -37,7 +37,17 @@ Purchase Invoice with **Update Stock** enabled. The invoice receives physical
 `total_amount` as the supplier liability. ERPNext remains authoritative for the
 stock ledger, valuation, and GL entries. Cancelling the supply first cancels its
 linked Purchase Invoice, reversing those effects. No Purchase Receipt, separate
-Stock Entry, custom GL entry, or Payment Entry is created.
+Stock Entry, or custom GL entry is created.
+
+A submitted supply with an unpaid submitted Purchase Invoice exposes **Record
+Payment**. The user selects an enabled Cash or Bank account for the invoice
+company, and the custom app asks ERPNext's standard `get_payment_entry` utility
+to build an unsaved Payment Entry. ERPNext supplies the payable account and
+Purchase Invoice reference; the user may review, reduce the allocation for a
+partial payment, save, and submit manually. Cardboard Supply payment status and
+outstanding amount are virtual, read-only values derived from the linked Purchase
+Invoice on every load; no custom balance or independently maintained payment
+status exists.
 
 ## Installation and migration
 
@@ -96,7 +106,9 @@ bench --site <test-site> run-tests --app cardboard_management \
 
 Tests cover the app foundation, weight calculations, validation, Purchase Invoice
 mapping and idempotency, physical stock quantity, supplier liability, migration
-schema, and cancellation reversal. Frappe tests use transactions and roll back
+schema, Payment Entry draft mapping, full/partial/deferred payments, over-allocation
+protection, derived payment state, and cancellation reversal. Frappe tests use
+transactions and roll back
 temporary records. Run them only on a local development or dedicated test site
 with `allow_tests` enabled.
 
