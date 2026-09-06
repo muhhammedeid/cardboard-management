@@ -16,11 +16,20 @@ class CardboardSupply(Document):
 
 	def onload(self):
 		self.refresh_payment_summary()
+		self.display_payable_weight = self.get_display_payable_weight()
+
+	def get_display_payable_weight(self):
+		if self.payable_weight or flt(self.net_weight) <= 0:
+			return self.payable_weight
+		return self.net_weight
 
 	def on_submit(self):
 		self.create_purchase_invoice()
 
 	def refresh_payment_summary(self):
+		self.integration_status = "Not Integrated"
+		self.invoice_total = None
+		self.invoice_paid_amount = None
 		self.purchase_invoice_outstanding = None
 		self.payment_status = None
 		if not self.purchase_invoice or not frappe.db.exists("Purchase Invoice", self.purchase_invoice):
@@ -33,12 +42,16 @@ class CardboardSupply(Document):
 			or purchase_invoice.supplier != self.supplier
 			or not purchase_invoice.has_permission("read")
 		):
+			self.integration_status = "Invalid Link"
 			return
 
+		self.integration_status = "Integrated"
 		precision = purchase_invoice.precision("outstanding_amount")
-		outstanding = flt(purchase_invoice.outstanding_amount, precision)
 		grand_total = flt(purchase_invoice.grand_total, precision)
+		outstanding = flt(purchase_invoice.outstanding_amount, precision)
+		self.invoice_total = grand_total
 		self.purchase_invoice_outstanding = outstanding
+		self.invoice_paid_amount = flt(grand_total - outstanding, precision)
 		if outstanding <= 0:
 			self.payment_status = "Paid"
 		elif outstanding >= grand_total:

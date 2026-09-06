@@ -160,6 +160,13 @@ class TestCardboardSupply(FrappeTestCase):
 		self.assertEqual(purchase_invoice.items[0].uom, "Kg")
 		self.assertEqual(purchase_invoice.custom_cardboard_supply, supply.name)
 		self.assertIn(supply.name, purchase_invoice.remarks)
+		supply.onload()
+
+		self.assertEqual(supply.integration_status, "Integrated")
+		self.assertEqual(supply.invoice_total, 5525)
+		self.assertEqual(supply.invoice_paid_amount, 0)
+		self.assertEqual(supply.purchase_invoice_outstanding, 5525)
+		self.assertEqual(supply.payment_status, "Unpaid")
 
 	def test_unpaid_supply_derives_full_purchase_invoice_outstanding(self):
 		supply = self.make_supply().insert()
@@ -168,6 +175,9 @@ class TestCardboardSupply(FrappeTestCase):
 		supply.onload()
 		purchase_invoice = frappe.get_doc("Purchase Invoice", supply.purchase_invoice)
 
+		self.assertEqual(supply.integration_status, "Integrated")
+		self.assertEqual(supply.invoice_total, purchase_invoice.grand_total)
+		self.assertEqual(supply.invoice_paid_amount, 0)
 		self.assertEqual(supply.purchase_invoice_outstanding, purchase_invoice.grand_total)
 		self.assertEqual(supply.payment_status, "Unpaid")
 
@@ -590,6 +600,17 @@ class TestCardboardSupply(FrappeTestCase):
 		self.assertIn('account_type: ["in", ["Cash", "Bank"]]', client_script)
 		self.assertIn('frm.doc.purchase_invoice_outstanding > 0', client_script)
 
+	def test_client_shows_integration_state_and_guards_record_payment(self):
+		client_script = Path(__file__).with_name("cardboard_supply.js").read_text()
+
+		self.assertIn('function add_integration_indicators(frm)', client_script)
+		self.assertIn('__("Not Integrated")', client_script)
+		self.assertIn('__("Invalid Link")', client_script)
+		self.assertIn('frm.dashboard.set_headline', client_script)
+		self.assertIn('!(frm.doc.purchase_invoice_outstanding > 0)', client_script)
+		self.assertIn('frm.doc.docstatus !== 1', client_script)
+		self.assertIn('!frm.doc.purchase_invoice', client_script)
+
 	def test_client_exposes_device_neutral_scale_capture_extension_points(self):
 		client_script = Path(__file__).with_name("cardboard_supply.js").read_text()
 
@@ -636,8 +657,15 @@ class TestCardboardSupply(FrappeTestCase):
 				self.assertEqual(field.options, options)
 				self.assertEqual(bool(field.reqd), required)
 				self.assertEqual(bool(field.read_only), read_only)
-		self.assertTrue(meta.get_field("purchase_invoice_outstanding").is_virtual)
-		self.assertTrue(meta.get_field("payment_status").is_virtual)
+		for fieldname in (
+			"purchase_invoice_outstanding",
+			"payment_status",
+			"integration_status",
+			"invoice_total",
+			"invoice_paid_amount",
+		):
+			with self.subTest(fieldname=fieldname):
+				self.assertTrue(meta.get_field(fieldname).is_virtual)
 		self.assertEqual(meta.get_field("posting_date").default, "Today")
 		self.assertEqual(meta.get_field("discount_type").default, "No Discount")
 		self.assertEqual(
@@ -657,6 +685,70 @@ class TestCardboardSupply(FrappeTestCase):
 			frappe.get_meta("Purchase Invoice Item").get_field("rate").precision,
 			9,
 		)
+
+	def test_legacy_zero_payable_weight_displays_net_weight(self):
+		supply = self.make_supply(gross_weight=1250, tare_weight=250).insert()
+		frappe.db.set_value("Cardboard Supply", supply.name, "payable_weight", 0, update_modified=False)
+		legacy = frappe.get_doc("Cardboard Supply", supply.name)
+		legacy.onload()
+
+		self.assertEqual(legacy.get_display_payable_weight(), legacy.net_weight)
+		self.assertEqual(legacy.as_dict().display_payable_weight, legacy.net_weight)
+		self.assertEqual(frappe.db.get_value("Cardboard Supply", supply.name, "payable_weight"), 0)
+
+	def test_current_supply_keeps_recorded_payable_weight_for_display(self):
+		supply = self.make_supply(discount_type="Kg", discount_value=100).insert()
+		supply.onload()
+
+		self.assertEqual(supply.get_display_payable_weight(), 900)
+		self.assertEqual(supply.display_payable_weight, 900)
+
+	def test_new_supply_without_purchase_invoice_shows_not_integrated(self):
+		supply = self.make_supply().insert()
+		supply.onload()
+
+		self.assertIsNone(supply.payment_status)
+		self.assertIsNone(supply.purchase_invoice_outstanding)
+		self.assertEqual(supply.integration_status, "Not Integrated")
+		self.assertIsNone(supply.invoice_total)
+		self.assertIsNone(supply.invoice_paid_amount)
+
+	def test_cancelled_linked_purchase_invoice_shows_invalid_link(self):
+		supply = self.make_supply().insert().submit()
+		frappe.db.set_value("Purchase Invoice", supply.purchase_invoice, "docstatus", 2, update_modified=False)
+		try:
+			supply.reload()
+			supply.onload()
+		finally:
+			frappe.db.set_value("Purchase Invoice", supply.purchase_invoice, "docstatus", 1, update_modified=False)
+
+		self.assertEqual(supply.integration_status, "Invalid Link")
+		self.assertIsNone(supply.payment_status)
+		self.assertIsNone(supply.purchase_invoice_outstanding)
+		self.assertIsNone(supply.invoice_total)
+		self.assertIsNone(supply.invoice_paid_amount)
+
+	def test_partially_paid_supply_shows_paid_amount_and_status(self):
+		supply = self.make_supply().insert().submit()
+		self.submit_payment(supply, 2000)
+		supply.reload()
+		supply.onload()
+
+		self.assertEqual(supply.invoice_total, 2750)
+		self.assertEqual(supply.invoice_paid_amount, 2000)
+		self.assertEqual(supply.purchase_invoice_outstanding, 750)
+		self.assertEqual(supply.payment_status, "Partially Paid")
+
+	def test_fully_paid_supply_shows_zero_outstanding(self):
+		supply = self.make_supply().insert().submit()
+		self.submit_payment(supply)
+		supply.reload()
+		supply.onload()
+
+		self.assertEqual(supply.invoice_total, 2750)
+		self.assertEqual(supply.invoice_paid_amount, 2750)
+		self.assertEqual(supply.purchase_invoice_outstanding, 0)
+		self.assertEqual(supply.payment_status, "Paid")
 
 	def test_payment_summary_does_not_expose_mismatched_invoice(self):
 		supply = self.make_supply().insert().submit()

@@ -5,6 +5,7 @@ frappe.ui.form.on("Cardboard Supply", {
 		toggle_discount_value(frm);
 		add_scale_capture_actions(frm);
 		add_record_payment_action(frm);
+		add_integration_indicators(frm);
 	},
 	discount_type(frm) {
 		if (frm.doc.discount_type === "No Discount") {
@@ -51,6 +52,31 @@ function add_record_payment_action(frm) {
 	}
 
 	frm.add_custom_button(__("Record Payment"), () => select_payment_account(frm));
+}
+
+function add_integration_indicators(frm) {
+	const status = frm.doc.integration_status || (frm.doc.purchase_invoice ? "Integrated" : "Not Integrated");
+	let label = __("Not Integrated");
+	let color = "gray";
+	let tooltip = __("No linked Purchase Invoice exists for this supply.");
+
+	if (status === "Integrated") {
+		label = __("Integrated");
+		color = "green";
+		tooltip = __("Linked Purchase Invoice is valid and submitted.");
+		if (frm.doc.payment_status === "Paid") {
+			label = __("Integrated - Paid");
+		} else if (frm.doc.payment_status === "Partially Paid") {
+			label = __("Integrated - Partially Paid");
+		}
+	} else if (status === "Invalid Link") {
+		label = __("Invalid Link");
+		color = "red";
+		tooltip = __("Linked Purchase Invoice is cancelled or does not belong to this supply.");
+	}
+
+	frm.dashboard.set_headline(__("ERPNext Integration: {0}", [frappe.utils.escape_html(label)]), color);
+	frm.dashboard.add_help ? frm.dashboard.add_help(tooltip) : null;
 }
 
 async function select_payment_account(frm) {
