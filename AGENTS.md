@@ -44,9 +44,9 @@ The Lead implements directly only when: the change is trivial; delegation overhe
 implementation; continuous architectural judgment is required; a delegated repair repeatedly
 failed; or safe isolation is impossible. Otherwise: **DELEGATE**.
 
-Delegation lane (V1): the single configured Hermes delegation provider/model
-(currently `openrouter` / `z-ai/glm-5.2:free`). Do not redesign Hermes for multi-model
-routing; single-lane delegation is acceptable.
+Delegation lane (V1): the single configured Hermes delegation provider/model — read
+`delegation.provider` / `delegation.model` from the Hermes config for the current lane.
+Do not redesign Hermes for multi-model routing; single-lane delegation is acceptable.
 
 **User override (highest authority):** the user may restrict a conversation to its assigned
 model only. When the user says delegation/child sessions are not permitted for the current
