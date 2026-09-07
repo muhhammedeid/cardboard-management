@@ -1,0 +1,233 @@
+{
+ "charts": [],
+ "content": "[{\"id\": \"cm-hero-header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Quick Actions</b></span>\", \"col\": 12}}, {\"id\": \"cm-shortcut-0\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"New Cardboard Supply\", \"col\": 3}}, {\"id\": \"cm-shortcut-1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Cardboard Supplies\", \"col\": 3}}, {\"id\": \"cm-shortcut-2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Suppliers\", \"col\": 3}}, {\"id\": \"cm-shortcut-3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Payment Entries\", \"col\": 3}}, {\"id\": \"cm-shortcut-4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Stock Balance\", \"col\": 3}}, {\"id\": \"cm-shortcut-5\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Items\", \"col\": 3}}, {\"id\": \"cm-shortcut-6\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Warehouses\", \"col\": 3}}, {\"id\": \"cm-spacer-after-shortcuts\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"cm-operations-header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Operations</b></span>\", \"col\": 12}}, {\"id\": \"cm-card-0\", \"type\": \"card\", \"data\": {\"card_name\": \"Purchasing / Supplies\", \"col\": 4}}, {\"id\": \"cm-card-1\", \"type\": \"card\", \"data\": {\"card_name\": \"Suppliers & Payments\", \"col\": 4}}, {\"id\": \"cm-card-2\", \"type\": \"card\", \"data\": {\"card_name\": \"Inventory\", \"col\": 4}}, {\"id\": \"cm-card-3\", \"type\": \"card\", \"data\": {\"card_name\": \"Reports\", \"col\": 4}}, {\"id\": \"cm-placeholder-header\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Coming Soon</b></span>\", \"col\": 12}}, {\"id\": \"cm-placeholder-text\", \"type\": \"paragraph\", \"data\": {\"text\": \"<span class=\\\"text-muted\\\">Expenses, Dashboard, and Scale Integration &mdash; Not implemented yet.</span>\", \"col\": 12}}]",
+ "creation": "2026-09-07 10:30:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 1,
+ "icon": "",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Cardboard Management",
+ "links": [
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Purchasing / Supplies",
+   "link_count": 2,
+   "link_to": "Purchase Invoice",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Cardboard Supply",
+   "link_count": 0,
+   "link_to": "Cardboard Supply",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Purchase Invoice",
+   "link_count": 0,
+   "link_to": "Purchase Invoice",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Suppliers & Payments",
+   "link_count": 2,
+   "link_to": "Supplier",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Supplier",
+   "link_count": 0,
+   "link_to": "Supplier",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Payment Entry",
+   "link_count": 0,
+   "link_to": "Payment Entry",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Inventory",
+   "link_count": 3,
+   "link_to": "Item",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Stock Balance",
+   "link_count": 0,
+   "link_to": "Stock Balance",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Item",
+   "link_count": 0,
+   "link_to": "Item",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Warehouse",
+   "link_count": 0,
+   "link_to": "Warehouse",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reports",
+   "link_count": 3,
+   "link_to": "Stock Balance",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Stock Balance",
+   "link_count": 0,
+   "link_to": "Stock Balance",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Supplier Outstanding",
+   "link_count": 0,
+   "link_to": "Accounts Payable",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Purchase Register",
+   "link_count": 0,
+   "link_to": "Purchase Register",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-09-07 10:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cardboard Management",
+ "name": "Cardboard Management",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": "",
+ "roles": [],
+ "sequence_id": 99.0,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "label": "New Cardboard Supply",
+   "link_to": "Cardboard Supply",
+   "type": "DocType",
+   "doc_view": "New"
+  },
+  {
+   "color": "Blue",
+   "label": "Cardboard Supplies",
+   "link_to": "Cardboard Supply",
+   "type": "DocType",
+   "doc_view": "List"
+  },
+  {
+   "color": "Green",
+   "label": "Suppliers",
+   "link_to": "Supplier",
+   "type": "DocType",
+   "doc_view": "List"
+  },
+  {
+   "color": "Orange",
+   "label": "Payment Entries",
+   "link_to": "Payment Entry",
+   "type": "DocType",
+   "doc_view": "List"
+  },
+  {
+   "color": "Grey",
+   "label": "Stock Balance",
+   "link_to": "Stock Balance",
+   "type": "Report"
+  },
+  {
+   "color": "Green",
+   "label": "Items",
+   "link_to": "Item",
+   "type": "DocType",
+   "doc_view": "List"
+  },
+  {
+   "color": "Green",
+   "label": "Warehouses",
+   "link_to": "Warehouse",
+   "type": "DocType",
+   "doc_view": "List"
+  }
+ ],
+ "title": "Cardboard Management"
+}

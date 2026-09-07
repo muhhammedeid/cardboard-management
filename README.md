@@ -87,6 +87,17 @@ retains the standard empty migration sections. All schema extensions and future
 patches must remain isolated here; core edits and manual database changes are
 not installation requirements.
 
+## Operational workspace
+
+The Cardboard Management workspace is a public Desk workspace for daily operational
+use. It ships as standard metadata in
+`cardboard_management/cardboard_management/workspace/` (rendered deterministically
+by `workspace/content_builder.py`), links only standard Frappe/ERPNext DocTypes and
+reports (Cardboard Supply, Purchase Invoice, Supplier, Payment Entry, Item,
+Warehouse, Stock Balance, Accounts Payable, Purchase Register), and adds no new
+accounting, expense, dashboard, or hardware logic. Future placeholders (Expenses,
+Dashboard, Scale Integration) appear as a "Coming Soon" note.
+
 ## Tests
 
 Read-only foundation checks run without a database and do not create ERP records:
@@ -117,8 +128,9 @@ with `allow_tests` enabled.
 - `cardboard_management/hooks.py`: app metadata, ERPNext dependency, and migration hooks.
 - `cardboard_management/setup.py`: idempotent standard-DocType schema extensions.
 - `cardboard_management/modules.txt`: Cardboard Management module declaration.
-- `cardboard_management/cardboard_management/`: business DocTypes and controllers.
-- `cardboard_management/tests/`: foundation tests.
+- `cardboard_management/cardboard_management/`: business DocTypes, controllers, and the
+  public Cardboard Management workspace (`workspace/`, rendered by `workspace/content_builder.py`).
+- `cardboard_management/tests/`: foundation and workspace source tests.
 - `cardboard_management/patches.txt` and `patches/`: standard migration structure.
 - `cardboard_management/public/`, `templates/`, `config/`: standard scaffold.
 - `pyproject.toml`: Python packaging and generated development-tool settings.
