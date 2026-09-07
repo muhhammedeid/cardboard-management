@@ -20,7 +20,9 @@ class TestWorkspaceSource(unittest.TestCase):
         self.assertEqual(workspace["for_user"], "")
         expected = [
             ("New Cardboard Supply", "DocType", "Cardboard Supply", "New"),
+            ("New Expense", "DocType", "Quick Expense", "New"),
             ("Cardboard Supplies", "DocType", "Cardboard Supply", "List"),
+            ("Expenses", "DocType", "Quick Expense", "List"),
             ("Suppliers", "DocType", "Supplier", "List"),
             ("Payment Entries", "DocType", "Payment Entry", "List"),
             ("Stock Balance", "Report", "Stock Balance", None),
@@ -33,7 +35,8 @@ class TestWorkspaceSource(unittest.TestCase):
         self.assertEqual([b["data"]["shortcut_name"] for b in blocks if b["type"] == "shortcut"],
                          [s[0] for s in expected])
         cards = [link["label"] for link in workspace["links"] if link["type"] == "Card Break"]
-        self.assertEqual(cards, ["Purchasing / Supplies", "Suppliers & Payments", "Inventory", "Reports"])
+        self.assertEqual(cards, ["Purchasing / Supplies", "Suppliers & Payments", "Expenses",
+                                 "Inventory", "Reports"])
         self.assertEqual([b["data"]["card_name"] for b in blocks if b["type"] == "card"], cards)
         reports = {link["label"]: link["link_to"] for link in workspace["links"]
                    if link.get("link_type") == "Report"}
@@ -44,7 +47,7 @@ class TestWorkspaceSource(unittest.TestCase):
             if link.get("link_type") == "Report":
                 self.assertEqual(link["is_query_report"], 1)
         text = " ".join(b["data"].get("text", "") for b in blocks)
-        for label in ("Quick Actions", "Operations", "Expenses", "Dashboard", "Scale Integration", "Not implemented yet"):
+        for label in ("Quick Actions", "Operations", "Dashboard", "Scale Integration", "Not implemented yet"):
             self.assertIn(label, text)
         for field in ("charts", "number_cards", "custom_blocks", "quick_lists"):
             self.assertEqual(workspace[field], [])

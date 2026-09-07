@@ -12,7 +12,9 @@ SEQUENCE_ID = 99.0
 
 SHORTCUTS = [
     {"label": "New Cardboard Supply", "type": "DocType", "link_to": "Cardboard Supply", "doc_view": "New", "color": "Blue"},
+    {"label": "New Expense", "type": "DocType", "link_to": "Quick Expense", "doc_view": "New", "color": "Red"},
     {"label": "Cardboard Supplies", "type": "DocType", "link_to": "Cardboard Supply", "doc_view": "List", "color": "Blue"},
+    {"label": "Expenses", "type": "DocType", "link_to": "Quick Expense", "doc_view": "List", "color": "Red"},
     {"label": "Suppliers", "type": "DocType", "link_to": "Supplier", "doc_view": "List", "color": "Green"},
     {"label": "Payment Entries", "type": "DocType", "link_to": "Payment Entry", "doc_view": "List", "color": "Orange"},
     {"label": "Stock Balance", "type": "Report", "link_to": "Stock Balance", "color": "Grey"},
@@ -37,6 +39,14 @@ CARDS = [
         "links": [
             {"label": "Supplier", "type": "Link", "link_type": "DocType", "link_to": "Supplier"},
             {"label": "Payment Entry", "type": "Link", "link_type": "DocType", "link_to": "Payment Entry"},
+        ],
+    },
+    {
+        "name": "Expenses",
+        "link_to": "Quick Expense",
+        "link_type": "DocType",
+        "links": [
+            {"label": "Quick Expense", "type": "Link", "link_type": "DocType", "link_to": "Quick Expense"},
         ],
     },
     {
@@ -87,7 +97,7 @@ def build_content():
     blocks = [
         {"id": "cm-hero-header", "type": "header", "data": {"text": HEADER_HTML.format(title=HERO), "col": 12}},
     ]
-    for index, shortcut in enumerate(SHORTCUTS):
+    for index, shortcut in enumerate(SHORTCUTS[:3]):
         blocks.append({
             "id": f"cm-shortcut-{index}",
             "type": "shortcut",
@@ -99,11 +109,34 @@ def build_content():
         "type": "header",
         "data": {"text": HEADER_HTML.format(title="Operations"), "col": 12},
     })
+    for index, shortcut in enumerate(SHORTCUTS[3:6], start=3):
+        blocks.append({
+            "id": f"cm-shortcut-{index}",
+            "type": "shortcut",
+            "data": {"shortcut_name": shortcut["label"], "col": 3},
+        })
+    blocks.append({
+        "id": "cm-spacer-after-operations-shortcuts",
+        "type": "spacer",
+        "data": {"col": 12},
+    })
     for index, card in enumerate(CARDS):
         blocks.append({
             "id": f"cm-card-{index}",
             "type": "card",
             "data": {"card_name": card["name"], "col": 4},
+        })
+    blocks.append({"id": "cm-spacer-after-cards", "type": "spacer", "data": {"col": 12}})
+    blocks.append({
+        "id": "cm-inventory-header",
+        "type": "header",
+        "data": {"text": HEADER_HTML.format(title="Inventory"), "col": 12},
+    })
+    for index, shortcut in enumerate(SHORTCUTS[6:], start=6):
+        blocks.append({
+            "id": f"cm-shortcut-{index}",
+            "type": "shortcut",
+            "data": {"shortcut_name": shortcut["label"], "col": 3},
         })
     blocks.append({
         "id": "cm-placeholder-header",
@@ -133,7 +166,7 @@ def build_workspace():
         "is_hidden": 0,
         "label": "Cardboard Management",
         "links": build_links(),
-        "modified": "2026-09-07 10:30:00.000000",
+        "modified": "2026-09-07 15:00:00.000000",
         "modified_by": "Administrator",
         "module": "Cardboard Management",
         "name": "Cardboard Management",
