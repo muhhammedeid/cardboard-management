@@ -18,6 +18,54 @@ class CardboardSupply(Document):
 		self.refresh_payment_summary()
 		self.display_payable_weight = self.get_display_payable_weight()
 
+	def before_print(self, settings=None):
+		self.refresh_payment_summary()
+		self.display_payable_weight = self.get_display_payable_weight()
+		self.set_ticket_print_context()
+
+	def set_ticket_print_context(self):
+		self.ticket_company_name = None
+		self.ticket_company_logo = None
+		self.ticket_currency = None
+		self.ticket_item_name = self.item
+		self.ticket_supplier_name = self.supplier
+		self.ticket_weight_uom = "Kg"
+
+		company = (
+			frappe.db.get_value("Warehouse", self.warehouse, "company") if self.warehouse else None
+		)
+		if self.integration_status == "Integrated" and self.purchase_invoice:
+			purchase_invoice = frappe.db.get_value(
+				"Purchase Invoice", self.purchase_invoice, ["company", "currency"], as_dict=True
+			)
+			if purchase_invoice:
+				company = purchase_invoice.company or company
+				self.ticket_currency = purchase_invoice.currency
+
+		if company:
+			company_details = frappe.db.get_value(
+				"Company",
+				company,
+				["name", "company_name", "company_logo", "default_currency"],
+				as_dict=True,
+			)
+			if company_details:
+				self.ticket_company_name = company_details.company_name or company_details.name
+				self.ticket_company_logo = company_details.company_logo
+				self.ticket_currency = self.ticket_currency or company_details.default_currency
+
+		if self.item:
+			item_details = frappe.db.get_value(
+				"Item", self.item, ["item_name", "stock_uom"], as_dict=True
+			)
+			if item_details:
+				self.ticket_item_name = item_details.item_name or self.item
+				self.ticket_weight_uom = item_details.stock_uom or self.ticket_weight_uom
+
+		if self.supplier:
+			supplier_name = frappe.db.get_value("Supplier", self.supplier, "supplier_name")
+			self.ticket_supplier_name = supplier_name or self.supplier
+
 	def get_display_payable_weight(self):
 		if self.payable_weight or flt(self.net_weight) <= 0:
 			return self.payable_weight

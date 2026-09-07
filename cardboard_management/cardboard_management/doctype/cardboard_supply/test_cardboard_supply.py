@@ -765,3 +765,134 @@ class TestCardboardSupply(FrappeTestCase):
 		self.assertEqual(supply.as_dict().purchase_invoice_outstanding, supply.total_amount)
 		self.assertNotIn("payment_status", supply.get_valid_dict(ignore_virtual=True))
 		self.assertNotIn("purchase_invoice_outstanding", supply.get_valid_dict(ignore_virtual=True))
+
+	def test_ticket_print_format_is_installed_for_cardboard_supply(self):
+		print_format = frappe.get_doc("Print Format", "Cardboard Supply Ticket")
+
+		self.assertEqual(print_format.doc_type, "Cardboard Supply")
+		self.assertEqual(print_format.module, "Cardboard Management")
+		self.assertEqual(print_format.standard, "Yes")
+		self.assertTrue(print_format.custom_format)
+
+	def render_ticket(self, supply, settings=None):
+		from frappe.www.printview import get_rendered_template
+
+		print_format = frappe.get_doc("Print Format", "Cardboard Supply Ticket")
+		return get_rendered_template(
+			doc=supply,
+			print_format=print_format,
+			no_letterhead=True,
+			settings=settings,
+		)
+
+	def assert_ticket_payment_state(self, supply, status, paid_amount, outstanding_amount):
+		html = self.render_ticket(supply)
+
+		self.assertEqual(supply.integration_status, "Integrated")
+		self.assertEqual(supply.payment_status, status)
+		self.assertEqual(supply.invoice_paid_amount, paid_amount)
+		self.assertEqual(supply.purchase_invoice_outstanding, outstanding_amount)
+		self.assertIn('data-ticket-field="invoice_total"', html)
+		self.assertIn('data-ticket-field="paid_amount"', html)
+		self.assertIn('data-ticket-field="outstanding_amount"', html)
+		self.assertIn(supply.get_formatted("invoice_total", currency=supply.ticket_currency), html)
+		self.assertIn(supply.get_formatted("invoice_paid_amount", currency=supply.ticket_currency), html)
+		self.assertIn(
+			supply.get_formatted("purchase_invoice_outstanding", currency=supply.ticket_currency), html
+		)
+		self.assertIn(status, html)
+
+	def test_ticket_renders_all_discount_modes_with_business_weights(self):
+		cases = (
+			("No Discount", 0, 0, 1000),
+			("Kg", 100, 100, 900),
+			("Percentage", 10, 100, 900),
+		)
+		for discount_type, discount_value, discount_weight, payable_weight in cases:
+			with self.subTest(discount_type=discount_type):
+				supply = self.make_supply(
+					discount_type=discount_type, discount_value=discount_value
+				).insert()
+				html = self.render_ticket(supply, settings={"allow_print_for_draft": 1})
+
+				self.assertIn('data-ticket-field="net_weight"', html)
+				self.assertIn('data-ticket-field="discount_weight"', html)
+				self.assertIn('data-ticket-field="payable_weight"', html)
+				self.assertIn(supply.get_formatted("net_weight"), html)
+				self.assertIn(supply.get_formatted("discount_weight"), html)
+				self.assertEqual(supply.display_payable_weight, payable_weight)
+				self.assertIn(supply.get_formatted("display_payable_weight"), html)
+
+	def test_ticket_uses_agreed_rate_and_dynamic_company_currency(self):
+		supply = self.make_supply(
+			gross_weight=1000,
+			tare_weight=100,
+			discount_type="Kg",
+			discount_value=50,
+			rate_per_kg=6.5,
+		).insert()
+		supply.submit()
+		purchase_invoice = frappe.get_doc("Purchase Invoice", supply.purchase_invoice)
+		company = frappe.db.get_value(
+			"Company", purchase_invoice.company, ["name", "company_name"], as_dict=True
+		)
+
+		html = self.render_ticket(supply)
+
+		self.assertEqual(supply.net_weight, 900)
+		self.assertEqual(supply.discount_weight, 50)
+		self.assertEqual(supply.display_payable_weight, 850)
+		self.assertEqual(supply.total_amount, 5525)
+		self.assertIn('dir="rtl"', html)
+		self.assertIn('@page { size: A5', html)
+		self.assertIn(supply.get_formatted("rate_per_kg", currency=supply.ticket_currency), html)
+		self.assertIn(supply.get_formatted("total_amount", currency=supply.ticket_currency), html)
+		self.assertNotIn(f"{purchase_invoice.items[0].rate:.9f}", html)
+		self.assertIn(purchase_invoice.currency, html)
+		self.assertIn(company.company_name or company.name, html)
+		self.assertEqual(supply.ticket_item_name, frappe.db.get_value("Item", supply.item, "item_name"))
+		self.assertEqual(
+			supply.ticket_supplier_name,
+			frappe.db.get_value("Supplier", supply.supplier, "supplier_name"),
+		)
+
+	def test_ticket_prints_live_unpaid_partial_and_paid_states(self):
+		unpaid = self.make_supply().insert()
+		unpaid.submit()
+		self.assert_ticket_payment_state(unpaid, "Unpaid", 0, unpaid.total_amount)
+
+		partial = self.make_supply().insert()
+		partial.submit()
+		self.submit_payment(partial, 1000)
+		partial.reload()
+		self.assert_ticket_payment_state(partial, "Partially Paid", 1000, partial.total_amount - 1000)
+
+		paid = self.make_supply().insert()
+		paid.submit()
+		self.submit_payment(paid)
+		paid.reload()
+		self.assert_ticket_payment_state(paid, "Paid", paid.total_amount, 0)
+
+	def test_ticket_print_reflects_payment_cancellation(self):
+		supply = self.make_supply().insert()
+		supply.submit()
+		payment_entry = self.submit_payment(supply, 1000)
+		payment_entry.cancel()
+		supply.reload()
+
+		self.assert_ticket_payment_state(supply, "Unpaid", 0, supply.total_amount)
+
+	def test_ticket_safely_displays_legacy_weight_and_no_invoice_state(self):
+		supply = self.make_supply().insert()
+		frappe.db.set_value("Cardboard Supply", supply.name, "payable_weight", 0, update_modified=False)
+		legacy = frappe.get_doc("Cardboard Supply", supply.name)
+
+		html = self.render_ticket(legacy, settings={"allow_print_for_draft": 1})
+
+		self.assertEqual(legacy.display_payable_weight, legacy.net_weight)
+		self.assertEqual(frappe.db.get_value("Cardboard Supply", legacy.name, "payable_weight"), 0)
+		self.assertIn(legacy.get_formatted("display_payable_weight"), html)
+		self.assertIn("Not Integrated — No Purchase Invoice", html)
+		self.assertNotIn('data-ticket-field="invoice_total"', html)
+		self.assertNotIn('data-ticket-field="paid_amount"', html)
+		self.assertNotIn('data-ticket-field="outstanding_amount"', html)
