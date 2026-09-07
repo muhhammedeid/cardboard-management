@@ -88,6 +88,33 @@ empty migration sections. All schema extensions and future patches remain
 isolated here; core edits and manual database changes are not installation
 requirements.
 
+### Local development launchers
+
+The complete environment can be started and stopped with one command each, from
+any directory inside WSL:
+
+```bash
+cardboard-start   # prepare the environment, then run bench start (foreground)
+cardboard-stop    # stop this bench and clean its Redis processes
+```
+
+Install once from the app checkout (`scripts/dev/install.sh` symlinks both
+commands into `~/.local/bin`, which is already on `$PATH`):
+
+```bash
+bash ~/frappe/cardboard-bench/apps/cardboard_management/scripts/dev/install.sh
+```
+
+`cardboard-start` validates the bench and site, starts MariaDB only when it is
+not running, cleans stale bench Redis processes on ports 13000/11000 (only
+processes verified to belong to this bench), and then runs `bench start` in
+the foreground. `Ctrl+C` remains the normal way to stop an interactive
+`cardboard-start` session. `cardboard-stop` stops only processes that belong
+to this bench and leaves MariaDB and unrelated processes untouched. Both
+commands are safe to run repeatedly. Migrations and asset builds remain
+explicit commands and are intentionally not part of startup. Details:
+`scripts/dev/README.md`.
+
 ## Operational workspace and dashboard
 
 The public Cardboard Management Desk workspace keeps daily actions, ten operational

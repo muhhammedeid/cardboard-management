@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+# cardboard-start — one-command launcher for the Cardboard Management dev bench.
+#
+# Prepares the local environment and then runs `bench start` in the foreground:
+#   1. validates the bench/site;
+#   2. exits early if the bench is already running;
+#   3. starts MariaDB only if it is not running;
+#   4. cleans stale bench Redis processes on ports 13000/11000 (this bench only);
+#   5. execs `bench start` so normal Ctrl+C behavior is preserved.
+#
+# Safety: never migrates, builds, recreates sites, deletes Redis data, or
+# touches unrelated processes. See scripts/dev/README.md.
+
+set -u -o pipefail
+
+APP_DIR="${CARDBOARD_BENCH_DIR:-$HOME/frappe/cardboard-bench}"
+SITE_DIR="$APP_DIR/sites/cardboard.localhost"
+CACHE_PORT=13000
+QUEUE_PORT=11000
+URL="http://cardboard.localhost:8000"
+
+log() { printf '[Cardboard] %s\n' "$*"; }
+fail() {
+	printf '[Cardboard] ERROR: %s\n' "$1" >&2
+	[ $# -ge 2 ] && printf '[Cardboard]        %s\n' "$2" >&2
+	exit 1
+}
+
+# --- A. resolve and validate environment -------------------------------------
+
+log "Checking environment..."
+
+[ -d "$APP_DIR" ] || fail "Bench directory not found: $APP_DIR" \
+	"Set CARDBOARD_BENCH_DIR or create the bench at \$HOME/frappe/cardboard-bench."
+[ -f "$APP_DIR/Procfile" ] || fail "Procfile not found: $APP_DIR/Procfile" \
+	"This does not look like a bench directory."
+[ -d "$SITE_DIR" ] || fail "Site not found: $SITE_DIR" \
+	"Create the site manually with 'bench new-site' (intentionally not automated here)."
+
+# bench (uv tool) and node (nvm) live outside the default non-interactive PATH;
+# reconstruct the interactive-shell environment so this works from any shell.
+case ":$PATH:" in
+*":$HOME/.local/bin:"*) ;;
+*) PATH="$HOME/.local/bin:$PATH" ;;
+esac
+export PATH
+
+command -v bench >/dev/null 2>&1 || fail "bench is not available in this environment." \
+	"Expected \$HOME/.local/bin/bench (uv tool 'frappe-bench')."
+
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+	export NVM_DIR="$HOME/.nvm"
+	# shellcheck disable=SC1091
+	. "$NVM_DIR/nvm.sh" --silent >/dev/null 2>&1 ||
+		. "$NVM_DIR/nvm.sh" >/dev/null 2>&1 || true
+fi
+command -v node >/dev/null 2>&1 || fail "node is not available in this environment." \
+	"socketio/watch need Node; load nvm (\$HOME/.nvm/nvm.sh) or install Node."
+
+port_pid() { # $1=port -> prints the listening process pid (empty if free)
+	ss -H -ltnp "sport = :$1" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | head -n 1
+}
+
+# --- E. already-running guard (before touching any service) -------------------
+
+for hpid in $(pgrep -u "$(id -u)" -x honcho 2>/dev/null; pgrep -u "$(id -u)" -f '/honcho( |$)' 2>/dev/null); do
+	[ "$(readlink "/proc/$hpid/cwd" 2>/dev/null)" = "$APP_DIR" ] || continue
+	log "Cardboard development environment is already running."
+	log "URL: $URL"
+	exit 0
+done
+
+web_pid=$(port_pid 8000)
+if [ -n "$web_pid" ]; then
+	web_comm=$(cat "/proc/$web_pid/comm" 2>/dev/null || echo unknown)
+	web_cwd=$(readlink "/proc/$web_pid/cwd" 2>/dev/null || echo unknown)
+	case "$web_comm" in
+	python* | gunicorn* | honcho | bench)
+		case "$web_cwd" in
+		"$APP_DIR" | "$APP_DIR"/*)
+			log "Cardboard development environment is already running."
+			log "URL: $URL"
+			exit 0
+			;;
+		*)
+			fail "TCP port 8000 is held by another web/bench process (pid $web_pid: $web_comm, cwd $web_cwd)." \
+				"Refusing to continue; it may belong to a different project."
+			;;
+		esac
+		;;
+	*)
+		fail "TCP port 8000 is occupied by an unrelated process (pid $web_pid: $web_comm)." \
+			"Refusing to continue; free the port or run 'bench serve --port <other>' manually."
+		;;
+	esac
+fi
+
+# --- C. MariaDB (start only when necessary) -----------------------------------
+
+mariadb_ready() { sudo -n mysqladmin --silent ping >/dev/null 2>&1; }
+
+state=$(systemctl is-active mariadb 2>/dev/null || true)
+if [ "$state" = "active" ]; then
+	log "MariaDB: running"
+else
+	if [ "$state" = "activating" ]; then
+		log "MariaDB: start already in progress, waiting..."
+	else
+		log "MariaDB: stopped -> starting..."
+		if command -v systemctl >/dev/null 2>&1; then
+			sudo -n systemctl start mariadb 2>/dev/null ||
+				sudo -n service mariadb start ||
+				fail "Could not start MariaDB via systemd." "Check: sudo journalctl -u mariadb -n 50"
+		else
+			sudo -n service mariadb start ||
+				fail "Could not start MariaDB via service." "Check: sudo service mariadb status"
+		fi
+	fi
+	i=0
+	until mariadb_ready; do
+		i=$((i + 1))
+		[ "$i" -ge 120 ] && fail "MariaDB did not become ready within 60s." \
+			"Check: sudo journalctl -u mariadb -n 50"
+		sleep 0.5
+	done
+	log "MariaDB: ready"
+fi
+
+# --- D. stale bench Redis on our ports (identified, never blind-killed) -------
+
+for port in "$CACHE_PORT" "$QUEUE_PORT"; do
+	rpid=$(port_pid "$port")
+	if [ -z "$rpid" ]; then
+		log "Redis $port: ready (port free)"
+		continue
+	fi
+	rcomm=$(cat "/proc/$rpid/comm" 2>/dev/null || echo unknown)
+	rcwd=$(readlink "/proc/$rpid/cwd" 2>/dev/null || echo unknown)
+	case "$rcwd" in
+	"$APP_DIR" | "$APP_DIR"/*) ;; # cwd inside this bench -> ours (bench redis dir is config/pids)
+	*)
+		fail "TCP port $port is occupied by an unrelated process (pid $rpid: $rcomm, cwd $rcwd)." \
+			"Not terminating it. Free the port manually, or set CARDBOARD_BENCH_DIR if the bench moved."
+		;;
+	esac
+	[ "$rcomm" = "redis-server" ] ||
+		fail "TCP port $port is held inside the bench by a non-redis process (pid $rpid: $rcomm)." \
+			"Not terminating it; inspect pid $rpid manually."
+	log "Redis $port: stale bench instance (pid $rpid) -> shutting down"
+	redis-cli -h 127.0.0.1 -p "$port" shutdown 2>/dev/null || kill -TERM "$rpid" 2>/dev/null || true
+	i=0
+	while [ -n "$(port_pid "$port")" ] && [ "$i" -lt 20 ]; do
+		i=$((i + 1))
+		sleep 0.5
+	done
+	if [ -n "$(port_pid "$port")" ]; then
+		kill -KILL "$rpid" 2>/dev/null || true
+		sleep 1
+	fi
+	[ -z "$(port_pid "$port")" ] || fail "Could not free Redis port $port (pid $rpid)." \
+		"Kill pid $rpid manually and rerun cardboard-start."
+	log "Redis $port: cleaned"
+done
+
+# --- F. start the bench in the foreground -------------------------------------
+
+log "Site: cardboard.localhost"
+log "Starting Bench..."
+printf '\nURL: %s\n\n' "$URL"
+cd "$APP_DIR" || fail "Cannot enter $APP_DIR."
+exec bench start "$@"

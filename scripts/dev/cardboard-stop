@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+# cardboard-stop — stop the Cardboard Management dev bench.
+#
+# Stops only processes that belong to this bench (identified by process name
+# AND working directory under the bench dir), cleans bench Redis processes on
+# ports 13000/11000, and never touches MariaDB or unrelated processes.
+# Safe to run repeatedly; exits 0 even when nothing is running.
+
+set -u -o pipefail
+
+APP_DIR="${CARDBOARD_BENCH_DIR:-$HOME/frappe/cardboard-bench}"
+CACHE_PORT=13000
+QUEUE_PORT=11000
+
+log() { printf '[Cardboard] %s\n' "$*"; }
+warn() { printf '[Cardboard] WARNING: %s\n' "$*" >&2; }
+
+UID_NUM=$(id -u)
+
+case ":$PATH:" in
+*":$HOME/.local/bin:"*) ;;
+*) PATH="$HOME/.local/bin:$PATH" ;;
+esac
+export PATH
+
+pid_on_port() { ss -H -ltnp "sport = :$1" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | head -n 1; }
+proc_comm() { cat "/proc/$1/comm" 2>/dev/null || echo unknown; }
+proc_cwd() { readlink "/proc/$1/cwd" 2>/dev/null || echo unknown; }
+alive() { [ -d "/proc/$1" ]; }
+
+in_bench() { # pid -> 0 when its cwd is inside this bench
+	case "$(proc_cwd "$1")" in
+	"$APP_DIR" | "$APP_DIR"/*) return 0 ;;
+	*) return 1 ;;
+	esac
+}
+
+is_bench_cmd() { # pid -> 0 when cmdline invokes `bench serve/socketio/worker/schedule/watch`
+	case "$(proc_comm "$1")" in
+	sh | bash | python* | bench) ;;
+	*) return 1 ;;
+	esac
+	local -a args=()
+	mapfile -t args < <(tr '\0' '\n' <"/proc/$1/cmdline" 2>/dev/null) || return 1
+	[ "${#args[@]}" -ge 2 ] || return 1
+	local i
+	for ((i = 0; i < ${#args[@]} - 1; i++)); do
+		if [ "${args[i]##*/}" = "bench" ]; then
+			case "${args[i + 1]}" in
+			serve | socketio | worker | schedule | watch) return 0 ;;
+			esac
+		fi
+	done
+	return 1
+}
+
+is_frappe_node() { # pid -> 0 for node/esbuild helpers spawned by this bench
+	case "$(proc_comm "$1")" in
+	node | esbuild) ;;
+	*) return 1 ;;
+	esac
+	tr '\0' ' ' <"/proc/$1/cmdline" 2>/dev/null | grep -qE 'frappe|esbuild|webpack'
+}
+
+is_honcho() { # pid -> 0 for the honcho process manager (comm or cmdline)
+	case "$(proc_comm "$1")" in
+	honcho) return 0 ;;
+	esac
+	tr '\0' ' ' <"/proc/$1/cmdline" 2>/dev/null | grep -q '/honcho\( \|$\)'
+}
+
+find_bench_pids() { # prints pids of honcho managers and bench subcommands of this bench
+	local p pids=()
+	for p in $(pgrep -u "$UID_NUM" 2>/dev/null); do
+		[ "$p" = "$$" ] && continue
+		in_bench "$p" || continue
+		if is_honcho "$p" || is_bench_cmd "$p" || is_frappe_node "$p"; then
+			pids+=("$p")
+		fi
+	done
+	[ ${#pids[@]} -gt 0 ] && printf '%s\n' "${pids[@]}"
+	return 0
+}
+
+term_all() { local p; for p in "$@"; do kill -TERM "$p" 2>/dev/null || true; done; }
+kill_all() { local p; for p in "$@"; do kill -KILL "$p" 2>/dev/null || true; done; }
+
+wait_gone() { # pids... -> 0 once none of them exist (up to ~10s)
+	local i=0 left p
+	while [ "$i" -lt 40 ]; do
+		left=0
+		for p in "$@"; do
+			alive "$p" && left=1
+		done
+		[ "$left" -eq 0 ] && return 0
+		i=$((i + 1))
+		sleep 0.25
+	done
+	return 1
+}
+
+stopped=0
+
+# 1. bench managers / subcommands / frappe node helpers of this bench
+mapfile -t bench_pids < <(find_bench_pids)
+if [ ${#bench_pids[@]} -gt 0 ]; then
+	log "Stopping Bench processes (${#bench_pids[@]})"
+	term_all "${bench_pids[@]}"
+	if ! wait_gone "${bench_pids[@]}"; then
+		warn "some bench processes ignored SIGTERM -> sending SIGKILL"
+		kill_all "${bench_pids[@]}"
+		sleep 1
+	fi
+	stopped=1
+fi
+
+# 2. leftover web/socketio listeners (e.g. orphaned after a crash)
+for port in 8000 9000; do
+	pid=$(pid_on_port "$port")
+	[ -n "$pid" ] || continue
+	if in_bench "$pid"; then
+		term_all "$pid"
+		wait_gone "$pid" || {
+			kill_all "$pid"
+			sleep 1
+		}
+		log "Stopped leftover listener on port $port (pid $pid)"
+		stopped=1
+	else
+		warn "port $port held by unrelated pid $pid ($(proc_comm "$pid")) - left untouched"
+	fi
+done
+
+# 3. bench Redis processes on our ports (graceful shutdown first)
+for port in "$CACHE_PORT" "$QUEUE_PORT"; do
+	pid=$(pid_on_port "$port")
+	if [ -z "$pid" ]; then
+		log "Redis $port: not running"
+		continue
+	fi
+	comm=$(proc_comm "$pid")
+	cwd=$(proc_cwd "$pid")
+	case "$cwd" in
+	"$APP_DIR" | "$APP_DIR"/*) ;; # cwd inside this bench -> ours (bench redis dir is config/pids)
+	*)
+		warn "Redis $port held by unrelated process (pid $pid: $comm, cwd $cwd) - left untouched"
+		continue
+		;;
+	esac
+	if [ "$comm" = "redis-server" ]; then
+		redis-cli -h 127.0.0.1 -p "$port" shutdown 2>/dev/null || kill_all "$pid"
+		wait_gone "$pid" || {
+			kill_all "$pid"
+			sleep 1
+		}
+		log "Redis $port: cleaned (pid $pid)"
+		stopped=1
+	else
+		warn "port $port held inside the bench by a non-redis process (pid $pid: $comm) - left untouched"
+	fi
+done
+
+if [ "$stopped" -eq 1 ]; then
+	log "Bench stopped."
+	log "Redis processes cleaned."
+else
+	log "Nothing was running."
+fi
+
+if [ "$(systemctl is-active mariadb 2>/dev/null || true)" = "active" ]; then
+	log "MariaDB left running."
+else
+	log "MariaDB was not running (left untouched)."
+fi
+exit 0
