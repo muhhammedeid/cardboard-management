@@ -1,0 +1,33 @@
+{
+ "chart_name": "Supplier Outstanding",
+ "chart_type": "Custom",
+ "color": "#2490EF",
+ "creation": "2026-09-07 17:00:00.000000",
+ "custom_options": "{\"fieldtype\": \"Float\", \"precision\": 3}",
+ "docstatus": 0,
+ "doctype": "Dashboard Chart",
+ "dynamic_filters_json": "{}",
+ "filters_json": "{}",
+ "idx": 0,
+ "is_public": 1,
+ "is_standard": 1,
+ "last_synced_on": "",
+ "modified": "2026-09-07 17:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cardboard Management",
+ "name": "Supplier Outstanding",
+ "number_of_groups": 0,
+ "owner": "Administrator",
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ],
+ "source": "Cardboard Supplier Outstanding",
+ "time_interval": "",
+ "timeseries": 0,
+ "timespan": "",
+ "type": "Bar",
+ "use_report_chart": 0,
+ "y_axis": []
+}

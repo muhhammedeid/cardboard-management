@@ -81,22 +81,36 @@ starting another instance on the same ports.
 
 The app uses the standard Bench-generated package and `modules.txt` declaration.
 An idempotent custom-app install/migration hook adds the Purchase Invoice back
-reference and configures nine-decimal Purchase Invoice Item rate precision.
-Financial amounts still follow ERPNext/company currency precision. `patches.txt`
-retains the standard empty migration sections. All schema extensions and future
-patches must remain isolated here; core edits and manual database changes are
-not installation requirements.
+reference, configures nine-decimal Purchase Invoice Item rate precision, and
+allows Journal Entry rows to reference Quick Expense. Financial amounts still
+follow ERPNext/company currency precision. `patches.txt` retains the standard
+empty migration sections. All schema extensions and future patches remain
+isolated here; core edits and manual database changes are not installation
+requirements.
 
-## Operational workspace
+## Operational workspace and dashboard
 
-The Cardboard Management workspace is a public Desk workspace for daily operational
-use. It ships as standard metadata in
-`cardboard_management/cardboard_management/workspace/` (rendered deterministically
-by `workspace/content_builder.py`), links only standard Frappe/ERPNext DocTypes and
-reports (Cardboard Supply, Purchase Invoice, Supplier, Payment Entry, Item,
-Warehouse, Stock Balance, Accounts Payable, Purchase Register), and adds no new
-accounting, expense, dashboard, or hardware logic. Future placeholders (Expenses,
-Dashboard, Scale Integration) appear as a "Coming Soon" note.
+The public Cardboard Management Desk workspace keeps daily actions, ten operational
+Number Cards, four Dashboard Charts, operational lists, inventory links, and
+standard reports on one page. It ships as app-owned standard metadata under
+`cardboard_management/cardboard_management/`.
+
+Configure the dashboard through the single `Cardboard Dashboard Settings` document:
+
+- `Company` deterministically scopes every metric.
+- `Cardboard Item Group` scopes current stock and the item chart to that Item Group
+  and its nested descendants.
+
+No company or item name is hard-coded. Supply metrics query submitted Cardboard
+Supply rows in warehouses belonging to the configured company. Expense metrics
+query submitted Quick Expenses. Supplier-payment metrics aggregate standard
+Payment Entry allocations against Purchase Invoices linked to Cardboard Supply.
+Current stock comes from ERPNext Bin state, and supplier outstanding comes from
+standard Payment Ledger Entry state. The app creates no summary table, scheduled
+KPI table, stock balance, supplier balance, or custom ledger.
+
+Quick Expense remains a thin operational document over standard Journal Entry
+accounting. Scale Integration is still shown only as a future placeholder.
 
 ## Tests
 
@@ -118,8 +132,9 @@ bench --site <test-site> run-tests --app cardboard_management \
 Tests cover the app foundation, weight calculations, validation, Purchase Invoice
 mapping and idempotency, physical stock quantity, supplier liability, migration
 schema, Payment Entry draft mapping, full/partial/deferred payments, over-allocation
-protection, derived payment state, and cancellation reversal. Frappe tests use
-transactions and roll back
+protection, derived payment state, Quick Expense accounting, all dashboard metrics,
+company and Item Group isolation, chart aggregation, widget metadata, workspace
+layout, and cancellation reversal. Frappe tests use transactions and roll back
 temporary records. Run them only on a local development or dedicated test site
 with `allow_tests` enabled.
 
