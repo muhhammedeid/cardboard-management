@@ -41,22 +41,23 @@ class TestWorkspaceSource(unittest.TestCase):
         expected = [
             ("New Cardboard Supply", "DocType", "Cardboard Supply", "New"),
             ("New Expense", "DocType", "Quick Expense", "New"),
+            ("Supplies", "DocType", "Cardboard Supply", "List"),
             ("Suppliers", "DocType", "Supplier", "List"),
-            ("Payment Entries", "DocType", "Payment Entry", "List"),
-            ("Cardboard Supplies", "DocType", "Cardboard Supply", "List"),
+            ("Payments", "DocType", "Payment Entry", "List"),
             ("Expenses", "DocType", "Quick Expense", "List"),
-            ("Stock Balance", "Report", "Stock Balance", None),
-            ("Items", "DocType", "Item", "List"),
-            ("Warehouses", "DocType", "Warehouse", "List"),
+            ("Inventory", "Report", "Stock Balance", None),
+            ("Reports", "Report", "Accounts Payable", None),
+            ("Settings", "DocType", "Cardboard Dashboard Settings", None),
         ]
         self.assertEqual([(s["label"], s["type"], s["link_to"], s.get("doc_view"))
                           for s in workspace["shortcuts"]], expected)
         blocks = json.loads(workspace["content"])
         self.assertEqual([b["data"]["shortcut_name"] for b in blocks if b["type"] == "shortcut"],
-                         [s[0] for s in expected])
+                         ["Supplies", "Suppliers", "Payments", "Expenses", "Inventory",
+                          "Reports", "Settings", "New Cardboard Supply", "New Expense"])
         cards = [link["label"] for link in workspace["links"] if link["type"] == "Card Break"]
         self.assertEqual(cards, ["Purchasing / Supplies", "Suppliers & Payments", "Expenses",
-                                 "Inventory", "Reports"])
+                                 "Inventory", "Reports", "Settings"])
         self.assertEqual([b["data"]["card_name"] for b in blocks if b["type"] == "card"], cards)
         reports = {link["label"]: link["link_to"] for link in workspace["links"]
                    if link.get("link_type") == "Report"}
@@ -74,8 +75,8 @@ class TestWorkspaceSource(unittest.TestCase):
         self.assertEqual([b["data"]["chart_name"] for b in blocks if b["type"] == "chart"], CHARTS)
 
         text = " ".join(b["data"].get("text", "") for b in blocks)
-        for label in ("Quick Actions", "TODAY", "CURRENT", "THIS MONTH", "Charts",
-                      "Operations", "Inventory", "Scale Integration", "Not implemented yet"):
+        for label in ("Operational Home", "Quick Actions", "TODAY", "CURRENT", "THIS MONTH",
+                      "Charts", "Scale Integration", "Not implemented yet"):
             self.assertIn(label, text)
         for field in ("custom_blocks", "quick_lists"):
             self.assertEqual(workspace[field], [])

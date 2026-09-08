@@ -1,0 +1,38 @@
+/* App-owned layout primitives for Cardboard Management operational surfaces. */
+body.cardboard-management-surface {
+	--cm-content-inline-padding: clamp(0.75rem, 2vw, 1.5rem);
+	--cm-section-gap: 1rem;
+}
+
+body.cardboard-management-surface.cardboard-management-rtl {
+	direction: rtl;
+	text-align: right;
+}
+
+body.cardboard-management-surface .cm-operational-shell {
+	margin-inline: auto;
+	padding-inline: var(--cm-content-inline-padding);
+}
+
+body.cardboard-management-surface .cm-operational-nav {
+	display: grid;
+	gap: var(--cm-section-gap);
+}
+
+body.cardboard-management-surface .cm-operational-section {
+	margin-block: var(--cm-section-gap);
+	text-align: start;
+}
+
+body.cardboard-management-surface.cardboard-management-rtl .cm-operational-shell,
+body.cardboard-management-surface.cardboard-management-rtl .cm-operational-nav,
+body.cardboard-management-surface.cardboard-management-rtl .cm-operational-section {
+	direction: rtl;
+	text-align: right;
+}
+
+body.cardboard-management-surface .cm-ltr-value {
+	direction: ltr;
+	text-align: start;
+	unicode-bidi: isolate;
+}

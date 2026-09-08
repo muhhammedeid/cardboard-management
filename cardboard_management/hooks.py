@@ -11,3 +11,7 @@ required_apps = ["erpnext"]
 # Standard ERPNext schema extensions owned by this custom app.
 after_install = "cardboard_management.setup.ensure_purchase_invoice_integration_schema"
 after_migrate = "cardboard_management.setup.ensure_purchase_invoice_integration_schema"
+
+# App-owned Desk presentation assets (route-scoped in JavaScript/CSS).
+app_include_css = ["/assets/cardboard_management/css/cardboard_management.css"]
+app_include_js = ["/assets/cardboard_management/js/cardboard_management.js"]
