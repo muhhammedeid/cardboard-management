@@ -41,6 +41,8 @@ class TestWorkspaceSource(unittest.TestCase):
         expected = [
             ("New Cardboard Supply", "DocType", "Cardboard Supply", "New"),
             ("New Expense", "DocType", "Quick Expense", "New"),
+            ("New Supplier", "DocType", "Supplier", "New"),
+            ("New Supplier Payment", "DocType", "Payment Entry", "New"),
             ("Supplies", "DocType", "Cardboard Supply", "List"),
             ("Suppliers", "DocType", "Supplier", "List"),
             ("Payments", "DocType", "Payment Entry", "List"),
@@ -54,7 +56,8 @@ class TestWorkspaceSource(unittest.TestCase):
         blocks = json.loads(workspace["content"])
         self.assertEqual([b["data"]["shortcut_name"] for b in blocks if b["type"] == "shortcut"],
                          ["Supplies", "Suppliers", "Payments", "Expenses", "Inventory",
-                          "Reports", "Settings", "New Cardboard Supply", "New Expense"])
+                          "Reports", "Settings", "New Cardboard Supply", "New Expense",
+                          "New Supplier", "New Supplier Payment"])
         cards = [link["label"] for link in workspace["links"] if link["type"] == "Card Break"]
         self.assertEqual(cards, ["Purchasing / Supplies", "Suppliers & Payments", "Expenses",
                                  "Inventory", "Reports", "Settings"])

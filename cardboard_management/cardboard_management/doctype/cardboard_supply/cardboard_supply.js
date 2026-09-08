@@ -12,34 +12,12 @@ frappe.ui.form.on("Cardboard Supply", {
 			frm.set_value("discount_value", 0);
 		}
 		toggle_discount_value(frm);
-		calculate_totals(frm);
 	},
-	discount_value: calculate_totals,
-	gross_weight: calculate_totals,
-	tare_weight: calculate_totals,
-	rate_per_kg: calculate_totals,
 });
 
 function toggle_discount_value(frm) {
 	const has_discount = Boolean(frm.doc.discount_type) && frm.doc.discount_type !== "No Discount";
 	frm.toggle_display("discount_value", has_discount);
-}
-
-function calculate_totals(frm) {
-	const net_weight = flt(frm.doc.gross_weight) - flt(frm.doc.tare_weight);
-	let discount_weight = 0;
-
-	if (frm.doc.discount_type === "Kg") {
-		discount_weight = flt(frm.doc.discount_value);
-	} else if (frm.doc.discount_type === "Percentage") {
-		discount_weight = net_weight * flt(frm.doc.discount_value) / 100;
-	}
-
-	const payable_weight = net_weight - discount_weight;
-	frm.set_value("net_weight", net_weight);
-	frm.set_value("discount_weight", discount_weight);
-	frm.set_value("payable_weight", payable_weight);
-	frm.set_value("total_amount", payable_weight * flt(frm.doc.rate_per_kg));
 }
 
 function add_record_payment_action(frm) {

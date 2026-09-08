@@ -158,12 +158,13 @@
    "label": "Payable Weight (Kg)",
    "read_only": 1,
    "is_virtual": 1,
+   "hidden": 1,
    "no_copy": 1
   },
   {
    "fieldname": "pricing_section",
    "fieldtype": "Section Break",
-   "label": "Pricing"
+   "label": "Price and Total"
   },
   {
    "fieldname": "rate_per_kg",
@@ -185,7 +186,7 @@
   {
    "fieldname": "integration_section",
    "fieldtype": "Section Break",
-   "label": "ERPNext Integration"
+   "label": "Linked Purchase Invoice"
   },
   {
    "fieldname": "purchase_invoice",
@@ -278,7 +279,9 @@
   },
   {
    "fieldname": "notes_section",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Notes",
+   "collapsible": 1
   },
   {
    "fieldname": "notes",

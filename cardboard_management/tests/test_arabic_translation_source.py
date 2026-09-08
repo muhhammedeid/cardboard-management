@@ -36,7 +36,11 @@ class TestArabicTranslationSource(unittest.TestCase):
         self.assertTrue(all(any("\u0600" <= char <= "\u06ff" for char in target)
                             for target in EXPECTED_NAVIGATION.values()))
         for source in ("Cardboard Supply", "Quick Expense", "Gross Weight", "Net Weight",
-                       "Rate per Kg", "Total Amount", "Expense Account", "Journal Entry"):
+                       "Rate per Kg", "Total Amount", "Expense Account", "Journal Entry",
+                       "New Supplier", "New Supplier Payment", "Supplier Name", "Payment Type",
+                       "Expense Details", "Expense Category", "Payment Account", "Payment Mode",
+                       "Party (Optional)", "Reference", "Attachment", "Accounting Integration",
+                       "Date", "No Discount", "Kg", "Percentage"):
             self.assertIn(source, catalogue)
 
     def test_internal_workspace_targets_remain_english_and_no_report_is_added(self):

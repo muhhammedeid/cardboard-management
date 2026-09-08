@@ -36,3 +36,23 @@ body.cardboard-management-surface .cm-ltr-value {
 	text-align: start;
 	unicode-bidi: isolate;
 }
+
+/* Operational forms stay readable without altering ERPNext field visibility. */
+body.cardboard-management-surface .layout-main-section {
+	max-width: 72rem;
+	margin-inline: auto;
+	padding-inline: var(--cm-content-inline-padding);
+}
+
+body.cardboard-management-surface .form-section {
+	margin-block-end: var(--cm-section-gap);
+}
+
+body.cardboard-management-surface .control-label {
+	font-weight: 600;
+}
+
+body.cardboard-management-surface .page-actions .btn-primary {
+	min-height: 2.5rem;
+	padding-inline: 1.25rem;
+}

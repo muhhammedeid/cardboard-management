@@ -1,10 +1,12 @@
 (function () {
 	"use strict";
 
-	const APP_DOCTYPES = new Set([
+	const OPERATIONAL_DOCTYPES = new Set([
 		"Cardboard Supply",
 		"Quick Expense",
 		"Cardboard Dashboard Settings",
+		"Supplier",
+		"Payment Entry",
 	]);
 	const SURFACE_CLASS = "cardboard-management-surface";
 	const RTL_CLASS = "cardboard-management-rtl";
@@ -21,7 +23,7 @@
 			return true;
 		}
 
-		return (view === "Form" || view === "List") && APP_DOCTYPES.has(target);
+		return (view === "Form" || view === "List") && OPERATIONAL_DOCTYPES.has(target);
 	}
 
 	function is_rtl() {

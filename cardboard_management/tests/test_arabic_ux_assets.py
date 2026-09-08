@@ -21,10 +21,9 @@ class TestArabicUxAssets(unittest.TestCase):
     def test_javascript_scope_is_an_explicit_app_only_allowlist(self):
         source = JS.read_text(encoding="utf-8")
         for allowed in ("Cardboard Management", "Cardboard Supply", "Quick Expense",
-                        "Cardboard Dashboard Settings"):
+                        "Cardboard Dashboard Settings", "Supplier", "Payment Entry"):
             self.assertIn(allowed, source)
-        for standard in ('"Supplier"', '"Payment Entry"', '"Item"', '"Warehouse"',
-                         '"Stock Balance"', '"Accounts Payable"'):
+        for standard in ('"Item"', '"Warehouse"', '"Stock Balance"', '"Accounts Payable"'):
             self.assertNotIn(standard, source)
         self.assertIn('router?.on?.("change", apply_route_scope)', source)
         self.assertIn('document.addEventListener("DOMContentLoaded", schedule_register', source)
@@ -41,6 +40,9 @@ class TestArabicUxAssets(unittest.TestCase):
         self.assertIn("margin-inline", source)
         self.assertIn("padding-inline", source)
         self.assertIn("direction: rtl", source)
+        self.assertIn(".layout-main-section", source)
+        self.assertIn(".form-section", source)
+        self.assertIn(".btn-primary", source)
         clean_source = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
         selector_groups = re.findall(r"(?:^|\})([^{}]+)\{", clean_source, flags=re.MULTILINE)
         selectors = [item.strip() for group in selector_groups for item in group.split(",")]
