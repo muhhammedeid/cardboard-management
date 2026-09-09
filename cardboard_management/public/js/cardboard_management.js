@@ -21,7 +21,7 @@
 	const MALFORMED_EGP_SYMBOL = "£ or ج.م";
 	const OPERATIONAL_EGP_SYMBOL = "ج.م";
 	let registered = false;
-	let currency_observer = null;
+	let workspace_currency_observer = null;
 
 	function is_operational_route(route) {
 		if (!Array.isArray(route) || route.length < 2) {
@@ -37,6 +37,10 @@
 		return (view === "Form" || view === "List") && OPERATIONAL_DOCTYPES.has(target);
 	}
 
+	function is_workspace_route(route) {
+		return Array.isArray(route) && route[0] === "Workspaces" && route[1] === "Cardboard Management";
+	}
+
 	function is_rtl() {
 		if (window.frappe?.utils?.is_rtl) {
 			return Boolean(window.frappe.utils.is_rtl());
@@ -48,56 +52,65 @@
 		);
 	}
 
-	function is_currency_normalization_route(route) {
-		return (
-			(Array.isArray(route) && route[0] === "Workspaces" && route[1] === "Cardboard Management") ||
-			(Array.isArray(route) && route[0] === "Form" && CURRENCY_NORMALIZED_DOCTYPES.has(route[1]))
-		);
-	}
-
 	function normalize_currency_value(value) {
 		return typeof value === "string"
 			? value.replaceAll(MALFORMED_EGP_SYMBOL, OPERATIONAL_EGP_SYMBOL)
 			: value;
 	}
 
-	function normalize_currency_node(node) {
-		if (!node) {
+	// Workspace Number Cards are not form controls. Retain the original narrowly
+	// scoped text repair only for their asynchronous widget output.
+	function normalize_workspace_currency_text(root = document.body) {
+		if (!document.body?.classList.contains(SURFACE_CLASS) || !root) {
 			return;
 		}
-		if (node.nodeType === Node.TEXT_NODE) {
-			node.nodeValue = normalize_currency_value(node.nodeValue);
-			return;
-		}
-		if (node.nodeType !== Node.ELEMENT_NODE) {
-			return;
-		}
-		const currency_fields = [];
-		if (node.matches?.('[data-fieldtype="Currency"]')) {
-			currency_fields.push(node);
-		}
-		currency_fields.push(...node.querySelectorAll?.('[data-fieldtype="Currency"]') || []);
-		currency_fields.forEach((field) => {
-			field.querySelectorAll('input, .control-value, .like-disabled-input, .input-with-feedback').forEach(
-				(element) => {
-					if (typeof element.value === "string") {
-						element.value = normalize_currency_value(element.value);
-					}
-					element.textContent = normalize_currency_value(element.textContent);
-				}
-			);
-		});
-		const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+		const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
 		while (walker.nextNode()) {
 			walker.currentNode.nodeValue = normalize_currency_value(walker.currentNode.nodeValue);
 		}
 	}
 
-	function normalize_operational_currency_text(root = document.body) {
-		if (!document.body?.classList.contains(SURFACE_CLASS) || !root) {
+	// Frappe renders readonly Currency form fields through BaseInput.set_disp_area:
+	// frappe.format -> frappe.form.formatters.Currency -> format_currency. Install
+	// a DocField formatter only on Cardboard forms, then delegate all numeric work
+	// to Frappe's native Currency formatter and replace its exact malformed EGP
+	// presentation token in the returned display string.
+	function operational_currency_formatter(value, df, options, doc) {
+		const currency = window.frappe.meta.get_field_currency(df, doc);
+		const formatted = window.frappe.form.formatters.Currency(value, df, options, doc);
+		if (currency !== "EGP") {
+			return formatted;
+		}
+		return normalize_currency_value(formatted);
+	}
+	operational_currency_formatter.cardboard_currency_presentation = true;
+
+	function install_operational_currency_formatter(frm) {
+		if (!CURRENCY_NORMALIZED_DOCTYPES.has(frm.doctype)) {
 			return;
 		}
-		normalize_currency_node(root);
+
+		Object.entries(frm.fields_dict).forEach(([fieldname, field]) => {
+			const df = field.df;
+			if (df.fieldtype !== "Currency" || df.formatter?.cardboard_currency_presentation) {
+				return;
+			}
+			df.formatter = operational_currency_formatter;
+			frm.refresh_field(fieldname);
+		});
+	}
+
+	function install_operational_currency_formatters() {
+		if (!window.frappe?.ui?.form?.on) {
+			return;
+		}
+		CURRENCY_NORMALIZED_DOCTYPES.forEach((doctype) => {
+			window.frappe.ui.form.on(doctype, {
+				refresh(frm) {
+					install_operational_currency_formatter(frm);
+				},
+			});
+		});
 	}
 
 	function apply_route_scope(route) {
@@ -110,23 +123,21 @@
 		const operational = is_operational_route(current_route);
 		body.classList.toggle(SURFACE_CLASS, operational);
 		body.classList.toggle(RTL_CLASS, operational && is_rtl());
-		const normalize_currency = is_currency_normalization_route(current_route);
-		if (!normalize_currency) {
-			currency_observer?.disconnect();
-			currency_observer = null;
+
+		if (!is_workspace_route(current_route)) {
+			workspace_currency_observer?.disconnect();
+			workspace_currency_observer = null;
 			return;
 		}
-		requestAnimationFrame(() => normalize_operational_currency_text());
-		if (!currency_observer) {
-			currency_observer = new MutationObserver((mutations) => {
+
+		requestAnimationFrame(() => normalize_workspace_currency_text());
+		if (!workspace_currency_observer) {
+			workspace_currency_observer = new MutationObserver((mutations) => {
 				mutations.forEach((mutation) => {
-					if (mutation.type === "characterData") {
-						normalize_operational_currency_text(mutation.target);
-					}
-					mutation.addedNodes.forEach(normalize_operational_currency_text);
+					mutation.addedNodes.forEach(normalize_workspace_currency_text);
 				});
 			});
-			currency_observer.observe(body, { childList: true, characterData: true, subtree: true });
+			workspace_currency_observer.observe(body, { childList: true, subtree: true });
 		}
 	}
 
@@ -155,6 +166,7 @@
 		}
 
 		registered = true;
+		install_operational_currency_formatters();
 		install_payment_primary_action();
 		apply_route_scope();
 		window.frappe.router?.on?.("change", apply_route_scope);
@@ -172,6 +184,7 @@
 		apply_route_scope,
 		is_operational_route,
 		is_rtl,
+		install_operational_currency_formatter,
 	});
 
 	if (document.readyState === "loading") {
