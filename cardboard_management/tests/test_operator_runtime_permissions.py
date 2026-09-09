@@ -32,7 +32,9 @@ class TestOperatorRuntimePermissions(FrappeTestCase):
     def run_report(self, report_name, filters):
         return generate_report_result(get_report_doc(report_name), filters)["result"]
 
-    def test_operator_can_resolve_supplier_payable_account(self):
+    def test_operator_can_read_supplier_list_and_resolve_payable_account(self):
+        suppliers = frappe.get_list("Supplier", fields=["name", "supplier_name"], limit_page_length=20)
+        self.assertTrue(suppliers)
         self.assertTrue(get_party_account("Supplier", self.supplier, COMPANY))
 
     def test_operator_can_run_accounts_payable(self):
@@ -65,6 +67,12 @@ class TestOperatorRuntimePermissions(FrappeTestCase):
             },
         )
         self.assertTrue(any(row.get("item_code") == ITEM and row.get("warehouse") == WAREHOUSE for row in rows))
+
+    def test_operator_can_read_accounts_payable_party_type_filter(self):
+        self.assertIsInstance(frappe.get_list("Party Type", fields=["name"], limit_page_length=20), list)
+
+    def test_operator_can_read_stock_balance_warehouse_type_filter(self):
+        self.assertIsInstance(frappe.get_list("Warehouse Type", fields=["name"], limit_page_length=20), list)
 
     def test_operator_cannot_modify_account_or_direct_erp_documents(self):
         for doctype in ("Account", "Payment Entry", "Purchase Invoice"):
