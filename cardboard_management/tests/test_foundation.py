@@ -18,7 +18,6 @@ class TestFoundation(unittest.TestCase):
 
 	def test_foundation_has_no_core_overrides_or_background_business_hooks(self):
 		for name in (
-			"doc_events",
 			"scheduler_events",
 			"override_doctype_class",
 			"override_whitelisted_methods",
@@ -27,6 +26,11 @@ class TestFoundation(unittest.TestCase):
 		):
 			with self.subTest(hook=name):
 				self.assertFalse(getattr(hooks, name, None))
+
+	def test_only_role_scoped_user_default_hook_is_registered(self):
+		self.assertEqual(hooks.doc_events, {
+			"User": {"on_update": "cardboard_management.setup.ensure_cardboard_operator_default_workspace"},
+		})
 
 	def test_navigation_fixtures_are_limited_to_unassigned_operator_configuration(self):
 		self.assertEqual(hooks.fixtures, [

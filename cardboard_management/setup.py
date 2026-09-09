@@ -12,6 +12,20 @@ RATE_PRECISION = 9
 
 REQUIRED_JE_ACCOUNT_REFERENCE_TYPE = "Quick Expense"
 
+OPERATOR_ROLE = "Cardboard Operator"
+OPERATOR_WORKSPACE = "Cardboard Management"
+OPERATOR_PERMISSIONS = {
+	"Cardboard Supply": {"read", "write", "create", "submit"},
+	"Quick Expense": {"read", "write", "create", "submit"},
+	"Cardboard Supplier Payment": {"read", "write", "create", "submit"},
+	"Supplier": {"read", "write", "create"},
+	"Item": {"read"},
+	"Warehouse": {"read"},
+	"Stock Ledger Entry": {"read", "report"},
+	"Purchase Invoice": {"read", "report"},
+}
+OPERATOR_REPORTS = ("Stock Balance", "Accounts Payable", "Purchase Register")
+
 
 def merge_reference_type_options(*option_sources):
 	"""Merge Select option sources without discarding upstream extensions.
@@ -51,6 +65,8 @@ def ensure_purchase_invoice_integration_schema():
 	)
 	_ensure_purchase_invoice_rate_precision()
 	_ensure_journal_entry_account_reference_type()
+	_ensure_cardboard_operator_permissions()
+	ensure_cardboard_operator_defaults()
 
 
 def _ensure_purchase_invoice_rate_precision():
@@ -108,3 +124,46 @@ def _ensure_journal_entry_account_reference_type():
 		validate_fields_for_doctype=False,
 	)
 	frappe.clear_cache(doctype="Journal Entry Account")
+
+
+def _ensure_cardboard_operator_permissions():
+	"""Create only the app-owned, minimum permission rows for operational routes."""
+	from frappe.permissions import add_permission, update_permission_property
+
+	for doctype, permissions in OPERATOR_PERMISSIONS.items():
+		if not frappe.db.exists("Custom DocPerm", {"parent": doctype, "role": OPERATOR_ROLE, "permlevel": 0}):
+			add_permission(doctype, OPERATOR_ROLE)
+		for permission in permissions:
+			update_permission_property(doctype, OPERATOR_ROLE, 0, permission, 1, validate=False)
+
+	for report in OPERATOR_REPORTS:
+		custom_role_name = frappe.db.get_value("Custom Role", {"report": report}, "name")
+		if custom_role_name:
+			custom_role = frappe.get_doc("Custom Role", custom_role_name)
+			if OPERATOR_ROLE not in {row.role for row in custom_role.roles}:
+				custom_role.append("roles", {"role": OPERATOR_ROLE})
+				custom_role.save(ignore_permissions=True)
+			continue
+		frappe.get_doc(
+			{"doctype": "Custom Role", "report": report, "roles": [{"role": OPERATOR_ROLE}]}
+		).insert(ignore_permissions=True)
+
+	frappe.clear_cache()
+
+
+def ensure_cardboard_operator_default_workspace(doc, method=None):
+	"""Use Frappe's native User.default_workspace; never redirect Administrators."""
+	if doc.name == "Administrator" or OPERATOR_ROLE not in {row.role for row in doc.get("roles", [])}:
+		return
+	if doc.default_workspace != OPERATOR_WORKSPACE:
+		frappe.db.set_value("User", doc.name, "default_workspace", OPERATOR_WORKSPACE, update_modified=False)
+		frappe.clear_cache(user=doc.name)
+
+
+def ensure_cardboard_operator_defaults():
+	for user in frappe.get_all(
+		"Has Role",
+		filters={"parenttype": "User", "role": OPERATOR_ROLE},
+		pluck="parent",
+	):
+		ensure_cardboard_operator_default_workspace(frappe.get_doc("User", user))

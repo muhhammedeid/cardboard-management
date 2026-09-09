@@ -35,14 +35,12 @@ class TestCardboardSupplierPaymentOperationalUx(unittest.TestCase):
         self.assertEqual(self.doctype["autoname"], "CSP-.YYYY.-.#####")
         self.assertEqual(self.doctype["is_submittable"], 1)
         self.assertEqual(self.doctype["module"], "Cardboard Management")
-        # setup.py must stay at its P03-R01 baseline: the wrapper is a
-        # first-class app DocType, never a Custom Field on Payment Entry, and
-        # JE_ACCOUNT_REFERENCE_TYPES is untouched.
+        # The wrapper remains a first-class app DocType, never a Custom Field on
+        # Payment Entry. W05 may reference it solely in the operator-permission map.
         setup_text = (APP / "setup.py").read_text(encoding="utf-8")
-        self.assertNotIn("Cardboard Supplier Payment", setup_text)
+        self.assertIn('"Cardboard Supplier Payment": {"read", "write", "create", "submit"}', setup_text)
         self.assertNotIn("custom_cardboard_supplier_payment", setup_text)
         self.assertIn("REQUIRED_JE_ACCOUNT_REFERENCE_TYPE", setup_text)
-        self.assertNotIn("Cardboard Supplier Payment", setup_text)
 
     def test_permissions_use_only_standard_accounts_roles(self):
         roles = [p["role"] for p in self.doctype["permissions"]]

@@ -6,16 +6,34 @@
     "block_modules": [
       {"doctype": "Block Module", "module": "Accounts"},
       {"doctype": "Block Module", "module": "Assets"},
+      {"doctype": "Block Module", "module": "Automation"},
+      {"doctype": "Block Module", "module": "Bulk Transaction"},
       {"doctype": "Block Module", "module": "Buying"},
+      {"doctype": "Block Module", "module": "Communication"},
+      {"doctype": "Block Module", "module": "Contacts"},
       {"doctype": "Block Module", "module": "CRM"},
-      {"doctype": "Block Module", "module": "HR"},
+      {"doctype": "Block Module", "module": "Custom"},
+      {"doctype": "Block Module", "module": "EDI"},
+      {"doctype": "Block Module", "module": "Email"},
+      {"doctype": "Block Module", "module": "ERPNext Integrations"},
+      {"doctype": "Block Module", "module": "Geo"},
+      {"doctype": "Block Module", "module": "Integrations"},
+      {"doctype": "Block Module", "module": "Maintenance"},
       {"doctype": "Block Module", "module": "Manufacturing"},
+      {"doctype": "Block Module", "module": "Portal"},
       {"doctype": "Block Module", "module": "Projects"},
-      {"doctype": "Block Module", "module": "Quality"},
+      {"doctype": "Block Module", "module": "Quality Management"},
+      {"doctype": "Block Module", "module": "Regional"},
       {"doctype": "Block Module", "module": "Selling"},
+      {"doctype": "Block Module", "module": "Setup"},
+      {"doctype": "Block Module", "module": "Social"},
       {"doctype": "Block Module", "module": "Stock"},
+      {"doctype": "Block Module", "module": "Subcontracting"},
       {"doctype": "Block Module", "module": "Support"},
-      {"doctype": "Block Module", "module": "Website"}
+      {"doctype": "Block Module", "module": "Telephony"},
+      {"doctype": "Block Module", "module": "Utilities"},
+      {"doctype": "Block Module", "module": "Website"},
+      {"doctype": "Block Module", "module": "Workflow"}
     ]
   }
 ]

@@ -182,7 +182,7 @@ BASE_WORKSPACE = {'charts': [{'chart_name': 'Daily Supplied Weight', 'label': 'D
             'link_type': 'DocType',
             'onboard': 0,
             'type': 'Link'}],
- 'modified': '2026-09-08 14:30:00.000000',
+ 'modified': '2026-09-09 14:19:32.000000',
  'modified_by': 'Administrator',
  'module': 'Cardboard Management',
  'name': 'Cardboard Management',
