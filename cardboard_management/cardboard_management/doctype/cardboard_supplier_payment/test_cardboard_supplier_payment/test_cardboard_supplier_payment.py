@@ -282,6 +282,6 @@ class TestCardboardSupplierPayment(FrappeTestCase):
 
 	def test_permissions_surface_matches_accounts_roles(self):
 		roles = {p.role for p in frappe.get_meta("Cardboard Supplier Payment").permissions}
-		self.assertEqual(roles, {"Accounts User", "Accounts Manager"})
+		self.assertEqual(roles, {"Accounts User", "Accounts Manager", "Cardboard Operator"})
 		pe_roles = {p.role for p in frappe.get_meta("Payment Entry").permissions}
 		self.assertEqual(pe_roles, {"Accounts User", "Accounts Manager"})
