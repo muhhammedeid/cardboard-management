@@ -109,7 +109,7 @@ Default maximum: 2–3 concurrent workers. Do not create concurrency merely beca
 ## 5. Required worker handoff format
 
 ```text
-STATUS: PASS | FAIL | BLOCKED
+STATUS: PASS | FAIL | BLOCKED | IMPLEMENTATION PASS — USER VISUAL QA REQUIRED
 WORK PACKAGE: <ID>
 FILES CHANGED:
 - ...
@@ -132,6 +132,10 @@ FOLLOW-UP:
 Concise. No diary of every action. Never claim PASS without real verification evidence;
 if testing is impossible, say so instead of fabricating evidence.
 
+Visual QA is mandatory for final acceptance, but execution of visual QA is USER-OWNED.
+Agents must stop and request the required user evidence. Do not report BLOCKED merely
+because authenticated screenshots have not yet been supplied.
+
 ## 6. Lead review gate
 
 A worker reporting PASS does not complete the Work Package. The Lead independently reviews:
@@ -147,6 +151,137 @@ BLOCKED — USER DECISION REQUIRED
 
 For localized defects prefer: review → targeted repair task → delegate repair → review again.
 Do not silently repair every delegated defect.
+
+Visual QA is mandatory for final acceptance, but execution of visual QA is USER-OWNED.
+Agents must stop and request the required user evidence. The Lead may close a package as
+APPROVED only after the user confirms the requested visual checks.
+
+## Manual Visual QA & Fail-Fast Execution Policy
+
+### Visual QA
+
+Visual verification is USER-OWNED.
+
+Agents must NOT:
+
+- launch or control browsers for visual QA;
+- attempt authenticated browser automation;
+- spend tokens retrying browser drivers;
+- infer visual correctness from screenshots they cannot access;
+- repeatedly troubleshoot browser-profile/session issues.
+
+If visual verification is required:
+
+1. complete all source/runtime/automated verification possible;
+2. stop at the visual gate;
+3. tell the user exactly which screen(s) to open;
+4. tell the user exactly what to visually verify;
+5. request screenshots only when they are genuinely needed.
+
+Return:
+
+```text
+VISUAL QA: PENDING USER VERIFICATION
+```
+
+This is NOT considered an implementation failure.
+
+The user owns the final visual confirmation.
+
+### Runtime / Build Fail-Fast Policy
+
+If a required command fails, including:
+
+- bench build
+- bench migrate
+- tests
+- runtime startup
+- Redis
+- MariaDB
+- Node/Corepack/Yarn
+- asset compilation
+- site access
+
+the agent must NOT enter an open-ended troubleshooting loop.
+
+Allowed behavior:
+
+1. inspect the immediate error;
+2. perform at most one narrow, low-risk diagnostic step when it directly identifies the cause;
+3. if the next action requires:
+   - environment changes;
+   - service restart;
+   - cache deletion;
+   - package installation;
+   - version switching;
+   - destructive command;
+   - broad workaround;
+   - repeated retries;
+
+STOP.
+
+Return:
+
+```text
+BLOCKED — USER ACTION REQUIRED
+```
+
+Include:
+
+- exact failed command;
+- exact relevant error;
+- likely cause, if known;
+- whether code changes are involved;
+- the smallest recommended next action for the user.
+
+Do not keep trying alternate approaches merely to obtain PASS.
+
+### No Silent Workarounds
+
+Agents must not silently:
+
+- switch Node versions;
+- use alternate caches;
+- restart the development environment;
+- kill processes;
+- modify global tooling;
+- start services;
+- change package-manager versions;
+- bypass failing tests;
+- skip verification gates;
+
+unless the Work Package explicitly authorizes that exact action.
+
+If authorization is not explicit:
+
+ASK THE USER.
+
+### User-Assisted Verification
+
+If the agent needs information from a running UI to continue implementation, ask the user
+for the minimum required evidence.
+
+Examples:
+
+- "Please open Cardboard Supplier Payment and send a screenshot of the amount field."
+- "Please click الموردون and tell me which route opens."
+- "Please run this command and send me the output."
+
+Do not attempt expensive browser automation first.
+
+### Completion Status
+
+When implementation and automated verification pass but manual visual QA remains:
+
+```text
+STATUS:
+IMPLEMENTATION PASS — USER VISUAL QA REQUIRED
+```
+
+Do not report BLOCKED unless actual implementation progress cannot continue.
+
+After the user confirms the requested visual checks, the Lead may close the package as
+APPROVED.
 
 ## 7. Escalation rules
 
@@ -175,6 +310,9 @@ Requirement → Lead analysis → Work Package → Delegated implementation
 ```
 
 Only the Lead closes a Work Package. Existing code is not sufficient.
+
+Visual QA is mandatory for final acceptance, but execution of visual QA is USER-OWNED.
+Agents must stop and request the required user evidence.
 
 ## 10. Verification quick reference
 
