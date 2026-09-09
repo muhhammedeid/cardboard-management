@@ -16,6 +16,15 @@ class TestCurrencyPresentation(unittest.TestCase):
         self.assertIn("TreeWalker", source)
         self.assertNotIn("window.format_currency =", source)
         self.assertNotIn("frappe.currency_symbols", source)
+    def test_form_currency_controls_and_refreshes_are_normalized_in_scope(self):
+        source = JS.read_text(encoding="utf-8")
+        self.assertIn("CURRENCY_NORMALIZED_DOCTYPES", source)
+        self.assertIn("is_currency_normalization_route", source)
+        self.assertIn('[data-fieldtype="Currency"]', source)
+        self.assertIn("normalize_currency_node", source)
+        self.assertIn("characterData: true", source)
+        self.assertIn("requestAnimationFrame", source)
+        self.assertNotIn('"Payment Entry"', source.split("CURRENCY_NORMALIZED_DOCTYPES", 1)[1].split("]);", 1)[0])
 
 
 if __name__ == "__main__":

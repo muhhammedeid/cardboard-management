@@ -9,6 +9,11 @@
 		"Supplier",
 		"Payment Entry",
 	]);
+	const CURRENCY_NORMALIZED_DOCTYPES = new Set([
+		"Cardboard Supply",
+		"Quick Expense",
+		"Cardboard Supplier Payment",
+	]);
 	const PAYMENT_DOCTYPE = "Cardboard Supplier Payment";
 	const PAYMENT_SUBMIT_LABEL = __("Save and Submit Payment");
 	const SURFACE_CLASS = "cardboard-management-surface";
@@ -43,21 +48,56 @@
 		);
 	}
 
-	function normalize_operational_currency_text(root = document.body) {
-		const body = document.body;
-		if (!body?.classList.contains(SURFACE_CLASS) || !root) {
+	function is_currency_normalization_route(route) {
+		return (
+			(Array.isArray(route) && route[0] === "Workspaces" && route[1] === "Cardboard Management") ||
+			(Array.isArray(route) && route[0] === "Form" && CURRENCY_NORMALIZED_DOCTYPES.has(route[1]))
+		);
+	}
+
+	function normalize_currency_value(value) {
+		return typeof value === "string"
+			? value.replaceAll(MALFORMED_EGP_SYMBOL, OPERATIONAL_EGP_SYMBOL)
+			: value;
+	}
+
+	function normalize_currency_node(node) {
+		if (!node) {
 			return;
 		}
-		const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-		const text_nodes = [];
-		while (walker.nextNode()) {
-			text_nodes.push(walker.currentNode);
+		if (node.nodeType === Node.TEXT_NODE) {
+			node.nodeValue = normalize_currency_value(node.nodeValue);
+			return;
 		}
-		text_nodes.forEach((node) => {
-			if (node.nodeValue.includes(MALFORMED_EGP_SYMBOL)) {
-				node.nodeValue = node.nodeValue.replaceAll(MALFORMED_EGP_SYMBOL, OPERATIONAL_EGP_SYMBOL);
-			}
+		if (node.nodeType !== Node.ELEMENT_NODE) {
+			return;
+		}
+		const currency_fields = [];
+		if (node.matches?.('[data-fieldtype="Currency"]')) {
+			currency_fields.push(node);
+		}
+		currency_fields.push(...node.querySelectorAll?.('[data-fieldtype="Currency"]') || []);
+		currency_fields.forEach((field) => {
+			field.querySelectorAll('input, .control-value, .like-disabled-input, .input-with-feedback').forEach(
+				(element) => {
+					if (typeof element.value === "string") {
+						element.value = normalize_currency_value(element.value);
+					}
+					element.textContent = normalize_currency_value(element.textContent);
+				}
+			);
 		});
+		const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+		while (walker.nextNode()) {
+			walker.currentNode.nodeValue = normalize_currency_value(walker.currentNode.nodeValue);
+		}
+	}
+
+	function normalize_operational_currency_text(root = document.body) {
+		if (!document.body?.classList.contains(SURFACE_CLASS) || !root) {
+			return;
+		}
+		normalize_currency_node(root);
 	}
 
 	function apply_route_scope(route) {
@@ -70,17 +110,23 @@
 		const operational = is_operational_route(current_route);
 		body.classList.toggle(SURFACE_CLASS, operational);
 		body.classList.toggle(RTL_CLASS, operational && is_rtl());
-		if (!operational) {
+		const normalize_currency = is_currency_normalization_route(current_route);
+		if (!normalize_currency) {
 			currency_observer?.disconnect();
 			currency_observer = null;
 			return;
 		}
-		normalize_operational_currency_text();
+		requestAnimationFrame(() => normalize_operational_currency_text());
 		if (!currency_observer) {
 			currency_observer = new MutationObserver((mutations) => {
-				mutations.forEach((mutation) => mutation.addedNodes.forEach(normalize_operational_currency_text));
+				mutations.forEach((mutation) => {
+					if (mutation.type === "characterData") {
+						normalize_operational_currency_text(mutation.target);
+					}
+					mutation.addedNodes.forEach(normalize_operational_currency_text);
+				});
 			});
-			currency_observer.observe(body, { childList: true, subtree: true });
+			currency_observer.observe(body, { childList: true, characterData: true, subtree: true });
 		}
 	}
 
