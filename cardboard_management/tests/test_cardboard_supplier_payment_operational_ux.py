@@ -123,13 +123,14 @@ class TestCardboardSupplierPaymentOperationalUx(unittest.TestCase):
         self.assertIn('const PAYMENT_SUBMIT_LABEL = __("Save and Submit Payment")', source)
         self.assertIn('frm.savesubmit', source)
 
-    def test_workspace_quick_action_targets_wrapper_and_list_stays_native(self):
+    def test_workspace_actions_and_listing_target_the_operational_wrapper(self):
         workspace = json.loads(WORKSPACE.read_text(encoding="utf-8"))
         quick = next(s for s in workspace["shortcuts"] if s["label"] == "New Supplier Payment")
         listing = next(s for s in workspace["shortcuts"] if s["label"] == "Payments")
         self.assertEqual(quick["link_to"], "Cardboard Supplier Payment")
         self.assertEqual(quick["doc_view"], "New")
-        self.assertEqual(listing["link_to"], "Payment Entry")
+        self.assertEqual(listing["link_to"], "Cardboard Supplier Payment")
+        self.assertEqual(listing["doc_view"], "List")
 
     def test_controller_uses_native_generation_and_never_writes_ledger(self):
         self.assertIn("get_payment_entry(", self.controller)

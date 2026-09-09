@@ -17,6 +17,9 @@ EXPECTED_NAVIGATION = {
     "Inventory": "المخزون",
     "Reports": "التقارير",
     "Settings": "الإعدادات",
+    "New Cardboard Supply": "توريدة جديدة",
+    "New Supplier Payment": "دفعة مورد",
+    "Main Work Areas": "مناطق العمل الرئيسية",
 }
 
 # P03-R02: the operational supplier-payment surface must translate every

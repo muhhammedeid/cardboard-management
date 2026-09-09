@@ -1,0 +1,21 @@
+[
+  {
+    "doctype": "Module Profile",
+    "name": "Cardboard Operator",
+    "module_profile_name": "Cardboard Operator",
+    "block_modules": [
+      {"doctype": "Block Module", "module": "Accounts"},
+      {"doctype": "Block Module", "module": "Assets"},
+      {"doctype": "Block Module", "module": "Buying"},
+      {"doctype": "Block Module", "module": "CRM"},
+      {"doctype": "Block Module", "module": "HR"},
+      {"doctype": "Block Module", "module": "Manufacturing"},
+      {"doctype": "Block Module", "module": "Projects"},
+      {"doctype": "Block Module", "module": "Quality"},
+      {"doctype": "Block Module", "module": "Selling"},
+      {"doctype": "Block Module", "module": "Stock"},
+      {"doctype": "Block Module", "module": "Support"},
+      {"doctype": "Block Module", "module": "Website"}
+    ]
+  }
+]

@@ -56,3 +56,35 @@ body.cardboard-management-surface .page-actions .btn-primary {
 	min-height: 2.5rem;
 	padding-inline: 1.25rem;
 }
+
+/* Workspace hierarchy: primary actions precede navigation and summary cards. */
+body.cardboard-management-surface .workspace-container {
+	padding-inline: var(--cm-content-inline-padding);
+}
+
+body.cardboard-management-surface .workspace-container .widget-head {
+	margin-block-start: 1.5rem;
+}
+
+body.cardboard-management-surface .workspace-container .widget-head:first-child {
+	margin-block-start: 0;
+}
+
+body.cardboard-management-surface .workspace-container .shortcut-widget-box {
+	min-block-size: 5rem;
+	padding-inline: 0.875rem;
+}
+
+body.cardboard-management-surface .workspace-container .number-widget-box {
+	min-block-size: 7rem;
+}
+
+body.cardboard-management-surface .workspace-container .chart-container {
+	margin-block-end: var(--cm-section-gap);
+}
+
+body.cardboard-management-surface.cardboard-management-rtl .workspace-container .widget-head,
+body.cardboard-management-surface.cardboard-management-rtl .workspace-container .shortcut-widget-box,
+body.cardboard-management-surface.cardboard-management-rtl .workspace-container .number-widget-box {
+	text-align: right;
+}

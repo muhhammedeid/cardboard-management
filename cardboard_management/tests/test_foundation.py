@@ -22,12 +22,17 @@ class TestFoundation(unittest.TestCase):
 			"scheduler_events",
 			"override_doctype_class",
 			"override_whitelisted_methods",
-			"fixtures",
 			"before_install",
 			"before_migrate",
 		):
 			with self.subTest(hook=name):
 				self.assertFalse(getattr(hooks, name, None))
+
+	def test_navigation_fixtures_are_limited_to_unassigned_operator_configuration(self):
+		self.assertEqual(hooks.fixtures, [
+			{"doctype": "Role", "filters": [["name", "=", "Cardboard Operator"]]},
+			{"doctype": "Module Profile", "filters": [["name", "=", "Cardboard Operator"]]},
+		])
 
 	def test_install_and_migrate_hooks_own_standard_schema_extensions(self):
 		expected = "cardboard_management.setup.ensure_purchase_invoice_integration_schema"
