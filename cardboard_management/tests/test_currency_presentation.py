@@ -1,4 +1,4 @@
-"""Database-free contract for Cardboard-only Egyptian Pound presentation."""
+"""Database-free contract for Cardboard-scoped Egyptian Pound presentation."""
 import unittest
 from pathlib import Path
 
@@ -26,6 +26,21 @@ class TestCurrencyPresentation(unittest.TestCase):
         self.assertIn('currency !== "EGP"', source)
         self.assertIn("frm.refresh_field(fieldname)", source)
         self.assertNotIn("[data-fieldtype=\"Currency\"]", source)
+
+    def test_report_currency_composes_query_report_formatters_only_for_approved_reports(self):
+        source = JS.read_text(encoding="utf-8")
+        scope = source.split("OPERATIONAL_CURRENCY_REPORTS", 1)[1].split("]);", 1)[0]
+        self.assertIn('"Stock Balance"', scope)
+        self.assertIn('"Accounts Payable"', scope)
+        self.assertIn('"Purchase Register"', scope)
+        self.assertNotIn('"General Ledger"', scope)
+        self.assertIn("install_operational_report_currency_formatter_hook", source)
+        self.assertIn("QueryReport?.prototype", source)
+        self.assertIn("get_report_settings.apply(this, args)", source)
+        self.assertIn('column?.fieldtype === "Currency"', source)
+        self.assertIn("native_formatter", source)
+        self.assertNotIn("window.format_currency =", source)
+        self.assertNotIn("window.get_currency_symbol =", source)
 
     def test_only_cardboard_form_doctypes_receive_the_formatter(self):
         source = JS.read_text(encoding="utf-8")

@@ -14,6 +14,11 @@
 		"Quick Expense",
 		"Cardboard Supplier Payment",
 	]);
+	const OPERATIONAL_CURRENCY_REPORTS = new Set([
+		"Stock Balance",
+		"Accounts Payable",
+		"Purchase Register",
+	]);
 	const PAYMENT_DOCTYPE = "Cardboard Supplier Payment";
 	const PAYMENT_SUBMIT_LABEL = __("Save and Submit Payment");
 	const SURFACE_CLASS = "cardboard-management-surface";
@@ -113,6 +118,53 @@
 		});
 	}
 
+	// Query Reports render Currency cells (including total rows) through the
+	// report's formatter, which delegates native numeric presentation through
+	// default_formatter. Compose the report's own formatter after its settings
+	// load; this preserves its styling and numbers, changing only the known EGP
+	// display token on the approved operational reports.
+	function install_operational_report_currency_formatter(report) {
+		const report_name = report?.report_name;
+		const settings = report?.report_settings;
+		if (!OPERATIONAL_CURRENCY_REPORTS.has(report_name) || !settings) {
+			return;
+		}
+
+		if (settings.formatter?.cardboard_report_currency_presentation) {
+			return;
+		}
+
+		const native_formatter = settings.formatter;
+		function formatter(value, row, column, data, default_formatter, filter) {
+			const formatted = native_formatter
+				? native_formatter(value, row, column, data, default_formatter, filter)
+				: default_formatter(value, row, column, data, filter);
+			return column?.fieldtype === "Currency" ? normalize_currency_value(formatted) : formatted;
+		}
+		formatter.cardboard_report_currency_presentation = true;
+		settings.formatter = formatter;
+	}
+
+	// QueryReport loads its settings before refresh_report(). Hook that lifecycle
+	// instead of observing rendered report DOM, so asynchronous result rows and
+	// totals are formatted natively on every report refresh or re-run.
+	function install_operational_report_currency_formatter_hook() {
+		const prototype = window.frappe?.views?.QueryReport?.prototype;
+		const get_report_settings = prototype?.get_report_settings;
+		if (!get_report_settings || get_report_settings.cardboard_report_currency_presentation) {
+			return;
+		}
+
+		function patched_get_report_settings(...args) {
+			return Promise.resolve(get_report_settings.apply(this, args)).then((result) => {
+				install_operational_report_currency_formatter(this);
+				return result;
+			});
+		}
+		patched_get_report_settings.cardboard_report_currency_presentation = true;
+		prototype.get_report_settings = patched_get_report_settings;
+	}
+
 	function apply_route_scope(route) {
 		const body = document.body;
 		if (!body) {
@@ -167,6 +219,7 @@
 
 		registered = true;
 		install_operational_currency_formatters();
+		install_operational_report_currency_formatter_hook();
 		install_payment_primary_action();
 		apply_route_scope();
 		window.frappe.router?.on?.("change", apply_route_scope);
@@ -185,6 +238,8 @@
 		is_operational_route,
 		is_rtl,
 		install_operational_currency_formatter,
+		install_operational_report_currency_formatter,
+		install_operational_report_currency_formatter_hook,
 	});
 
 	if (document.readyState === "loading") {

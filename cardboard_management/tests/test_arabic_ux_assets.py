@@ -24,8 +24,14 @@ class TestArabicUxAssets(unittest.TestCase):
                         "Cardboard Dashboard Settings", "Supplier", "Payment Entry",
                         "Cardboard Supplier Payment"):
             self.assertIn(allowed, source)
-        for standard in ('"Item"', '"Warehouse"', '"Stock Balance"', '"Accounts Payable"'):
+        for standard in ('"Item"', '"Warehouse"', '"General Ledger"', '"Stock Ledger"',
+                         '"Accounts Receivable"', '"Sales Register"'):
             self.assertNotIn(standard, source)
+        report_scope = source.split("OPERATIONAL_CURRENCY_REPORTS", 1)[1].split("]);", 1)[0]
+        self.assertEqual(
+            {"Stock Balance", "Accounts Payable", "Purchase Register"},
+            set(re.findall(r'"([^"]+)"', report_scope)),
+        )
         self.assertIn('router?.on?.("change", apply_route_scope)', source)
         self.assertIn('document.addEventListener("DOMContentLoaded", schedule_register', source)
         self.assertIn('schedule_register();', source)
