@@ -227,7 +227,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-09-08 11:33:33.000000",
+ "modified": "2026-09-08 14:30:00.000000",
  "modified_by": "Administrator",
  "module": "Cardboard Management",
  "name": "Cardboard Management",
@@ -305,7 +305,7 @@
   {
    "color": "Orange",
    "label": "New Supplier Payment",
-   "link_to": "Payment Entry",
+   "link_to": "Cardboard Supplier Payment",
    "type": "DocType",
    "doc_view": "New"
   },

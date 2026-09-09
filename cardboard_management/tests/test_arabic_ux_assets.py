@@ -21,7 +21,8 @@ class TestArabicUxAssets(unittest.TestCase):
     def test_javascript_scope_is_an_explicit_app_only_allowlist(self):
         source = JS.read_text(encoding="utf-8")
         for allowed in ("Cardboard Management", "Cardboard Supply", "Quick Expense",
-                        "Cardboard Dashboard Settings", "Supplier", "Payment Entry"):
+                        "Cardboard Dashboard Settings", "Supplier", "Payment Entry",
+                        "Cardboard Supplier Payment"):
             self.assertIn(allowed, source)
         for standard in ('"Item"', '"Warehouse"', '"Stock Balance"', '"Accounts Payable"'):
             self.assertNotIn(standard, source)
@@ -32,6 +33,15 @@ class TestArabicUxAssets(unittest.TestCase):
         self.assertIn('classList.toggle(RTL_CLASS, operational && is_rtl())', source)
         self.assertNotRegex(source, r"\.(hide|remove)\s*\(")
         self.assertNotIn("permission", source.lower())
+        # P03-R02: the payment route rides the same route-scoped surface and the
+        # primary action label must be the supported translated one. No client
+        # accounting logic may appear in app JS.
+        self.assertIn('PAYMENT_SUBMIT_LABEL = __("Save and Submit Payment")', source)
+        self.assertIn("Cardboard Supplier Payment", source)
+        self.assertIn("frm.savesubmit", source)
+        for forbidden in ("GL Entry", "Payment Ledger Entry", "outstanding_amount",
+                          "frappe.db.set_value", "make_gl_entries"):
+            self.assertNotIn(forbidden, source)
 
     def test_css_is_fully_scoped_without_hiding_or_important_rules(self):
         source = CSS.read_text(encoding="utf-8")

@@ -42,7 +42,7 @@ class TestWorkspaceSource(unittest.TestCase):
             ("New Cardboard Supply", "DocType", "Cardboard Supply", "New"),
             ("New Expense", "DocType", "Quick Expense", "New"),
             ("New Supplier", "DocType", "Supplier", "New"),
-            ("New Supplier Payment", "DocType", "Payment Entry", "New"),
+            ("New Supplier Payment", "DocType", "Cardboard Supplier Payment", "New"),
             ("Supplies", "DocType", "Cardboard Supply", "List"),
             ("Suppliers", "DocType", "Supplier", "List"),
             ("Payments", "DocType", "Payment Entry", "List"),
@@ -53,6 +53,13 @@ class TestWorkspaceSource(unittest.TestCase):
         ]
         self.assertEqual([(s["label"], s["type"], s["link_to"], s.get("doc_view"))
                           for s in workspace["shortcuts"]], expected)
+        # The payment quick action must be the app-owned wrapper; the Payments
+        # list shortcut stays on the native Payment Entry list.
+        payments_quick = next(
+            s for s in workspace["shortcuts"] if s["label"] == "New Supplier Payment")
+        payments_list = next(s for s in workspace["shortcuts"] if s["label"] == "Payments")
+        self.assertEqual(payments_list["link_to"], "Payment Entry")
+        self.assertNotEqual(payments_list["link_to"], payments_quick["link_to"])
         blocks = json.loads(workspace["content"])
         self.assertEqual([b["data"]["shortcut_name"] for b in blocks if b["type"] == "shortcut"],
                          ["Supplies", "Suppliers", "Payments", "Expenses", "Inventory",
