@@ -1,7 +1,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt, getdate
+from frappe.utils import flt, getdate, nowdate
 
 
 class QuickExpense(Document):
@@ -12,12 +12,27 @@ class QuickExpense(Document):
 	ACCOUNTING_STATUS_CANCELLED = "Cancelled"
 
 	def validate(self):
+		self.validate_posting_date()
 		self.set_missing_company_from_payment_accounts()
+		self.validate_company_scope()
 		self.validate_amount()
 		self.validate_expense_account()
 		self.validate_payment_account()
 		self.validate_reference()
 		self.refresh_accounting_summary()
+
+	def validate_posting_date(self):
+		self.posting_date = self.posting_date or nowdate()
+		if getdate(self.posting_date) > getdate(nowdate()):
+			frappe.throw(_("Posting Date cannot be in the future"))
+
+	def validate_company_scope(self):
+		company = frappe.db.get_single_value("Cardboard Dashboard Settings", "company")
+		if not company or not frappe.db.exists("Company", company):
+			frappe.throw(_("Configure Company in Cardboard Dashboard Settings before recording expenses"))
+		if self.company and self.company != company:
+			frappe.throw(_("Quick Expense company must match the configured Company"))
+		self.company = company
 
 	def onload(self):
 		self.refresh_accounting_summary()

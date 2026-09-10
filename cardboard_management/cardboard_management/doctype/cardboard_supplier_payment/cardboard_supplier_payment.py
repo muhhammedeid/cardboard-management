@@ -14,11 +14,17 @@ class CardboardSupplierPayment(Document):
 	INTEGRATION_STATUS_CANCELLED = "Cancelled"
 
 	def validate(self):
+		self.validate_posting_date()
 		self.validate_supplier()
 		self.validate_amount()
 		self.validate_mode_of_payment()
 		self.validate_reference()
 		self.validate_open_outstanding()
+
+	def validate_posting_date(self):
+		self.posting_date = self.posting_date or nowdate()
+		if getdate(self.posting_date) > getdate(nowdate()):
+			frappe.throw(_("Posting Date cannot be in the future"))
 
 	def onload(self):
 		# Populate the virtual display fields (plain attributes, serialized to
@@ -137,7 +143,9 @@ class CardboardSupplierPayment(Document):
 
 	def validate_open_outstanding(self):
 		company = resolve_payment_company(self.supplier)
-		self.company = self.company or company
+		if self.company and self.company != company:
+			frappe.throw(_("Cardboard Supplier Payment company must match the configured Company"))
+		self.company = company
 		if not self._qualifying_invoices(self.supplier, company):
 			frappe.throw(_("No outstanding invoices exist for this supplier"))
 

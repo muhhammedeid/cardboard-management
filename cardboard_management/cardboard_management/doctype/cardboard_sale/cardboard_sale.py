@@ -29,14 +29,22 @@ class CardboardSale(Document):
 		settings = frappe.get_cached_doc("Cardboard Dashboard Settings")
 		if not settings.company or not frappe.db.exists("Company", settings.company):
 			frappe.throw(_("Configure Company in Cardboard Dashboard Settings before recording sales"))
+		if not settings.cardboard_item_group or not frappe.db.exists(
+			"Item Group", settings.cardboard_item_group
+		):
+			frappe.throw(_("Configure Cardboard Item Group in Cardboard Dashboard Settings before recording sales"))
 		if not settings.default_warehouse:
 			frappe.throw(_("لم يتم تحديد المخزن الافتراضي في إعدادات إدارة الكرتون."))
-		self.company = self.company or settings.company
-		self.warehouse = self.warehouse or settings.default_warehouse
+		if self.company and self.company != settings.company:
+			frappe.throw(_("Cardboard Sale company must match the configured Company"))
+		if self.warehouse and self.warehouse != settings.default_warehouse:
+			frappe.throw(_("Cardboard Sale must use the configured default warehouse"))
+		self.company = settings.company
+		self.warehouse = settings.default_warehouse
 		warehouse = frappe.db.get_value(
 			"Warehouse", self.warehouse, ["name", "company", "disabled", "is_group"], as_dict=True
 		)
-		if not warehouse or warehouse.disabled or warehouse.is_group or warehouse.company != self.company:
+		if not warehouse or warehouse.disabled or warehouse.is_group or warehouse.company != settings.company:
 			frappe.throw(_("المخزن الافتراضي في إعدادات إدارة الكرتون غير صالح."))
 
 	def validate_item(self):
@@ -48,11 +56,13 @@ class CardboardSale(Document):
 		item = frappe.db.get_value(
 			"Item",
 			self.item,
-			["name", "disabled", "is_stock_item", "item_group"],
+			["name", "disabled", "is_stock_item", "item_group", "stock_uom"],
 			as_dict=True,
 		)
 		if not item or item.disabled or not item.is_stock_item:
 			frappe.throw(_("Select a valid cardboard item"))
+		if item.stock_uom != "Kg":
+			frappe.throw(_("Item Stock UOM must be Kg"))
 		if item.item_group not in item_groups:
 			frappe.throw(_("Select an item from the configured Cardboard Item Group"))
 

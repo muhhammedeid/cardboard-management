@@ -4,6 +4,8 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import getdate, nowdate
 
+from frappe.utils.nestedset import get_descendants_of
+
 from cardboard_management.cardboard_management.doctype.cardboard_supply.cardboard_supply import CardboardSupply
 
 
@@ -25,14 +27,24 @@ class TestCardboardSupply(FrappeTestCase):
 				}
 			).insert()
 
+		settings = frappe.get_cached_doc("Cardboard Dashboard Settings")
+		item_groups = [
+			settings.cardboard_item_group,
+			*get_descendants_of("Item Group", settings.cardboard_item_group),
+		]
 		cls.item = frappe.db.get_value(
-			"Item", {"disabled": 0, "is_stock_item": 1, "stock_uom": "Kg"}, "name"
+			"Item",
+			{
+				"item_group": ["in", item_groups],
+				"disabled": 0,
+				"is_stock_item": 1,
+				"stock_uom": "Kg",
+			},
+			"name",
 		)
-		cls.warehouse = frappe.db.get_value(
-			"Warehouse", {"disabled": 0, "is_group": 0, "company": ("is", "set")}, "name"
-		)
+		cls.warehouse = settings.default_warehouse
 		if not cls.item or not cls.warehouse:
-			raise AssertionError("Cardboard Supply tests require one enabled Kg stock Item and valid Warehouse")
+			raise AssertionError("Cardboard Supply tests require a configured Kg cardboard item and default Warehouse")
 
 	def make_supply(self, **overrides):
 		values = {
@@ -493,7 +505,7 @@ class TestCardboardSupply(FrappeTestCase):
 		original_company = frappe.db.get_value("Warehouse", self.warehouse, "company")
 		try:
 			frappe.db.set_value("Warehouse", self.warehouse, "company", None, update_modified=False)
-			with self.assertRaisesRegex(frappe.ValidationError, "Warehouse must belong to a valid Company"):
+			with self.assertRaisesRegex(frappe.ValidationError, "Warehouse must belong to a valid Company|المخزن الافتراضي في إعدادات إدارة الكرتون غير صالح"):
 				self.make_supply().insert().submit()
 		finally:
 			frappe.db.set_value(

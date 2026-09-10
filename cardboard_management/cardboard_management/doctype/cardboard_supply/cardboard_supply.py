@@ -1,18 +1,69 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import cint, flt, getdate
+from frappe.utils import cint, flt, getdate, nowdate
+from frappe.utils.nestedset import get_descendants_of
 
 
 class CardboardSupply(Document):
 	VALID_DISCOUNT_TYPES = ("No Discount", "Kg", "Percentage")
 
 	def validate(self):
+		self.validate_posting_date()
+		self.validate_operational_scope()
 		self.validate_weights_and_rate()
 		self.calculate_net_weight()
 		self.validate_discount()
 		self.calculate_discount_and_payable_weight()
 		self.calculate_total_amount()
+
+	def validate_posting_date(self):
+		self.posting_date = self.posting_date or nowdate()
+		if getdate(self.posting_date) > getdate(nowdate()):
+			frappe.throw(_("Posting Date cannot be in the future"))
+
+	def validate_operational_scope(self):
+		self._get_operational_scope()
+
+	def _get_operational_scope(self):
+		settings = frappe.get_cached_doc("Cardboard Dashboard Settings")
+		if not settings.company or not frappe.db.exists("Company", settings.company):
+			frappe.throw(_("Configure Company in Cardboard Dashboard Settings before recording supplies"))
+		if not settings.cardboard_item_group or not frappe.db.exists(
+			"Item Group", settings.cardboard_item_group
+		):
+			frappe.throw(_("Configure Cardboard Item Group in Cardboard Dashboard Settings before recording supplies"))
+		if not settings.default_warehouse:
+			frappe.throw(_("لم يتم تحديد المخزن الافتراضي في إعدادات إدارة الكرتون."))
+		if self.warehouse != settings.default_warehouse:
+			frappe.throw(_("Cardboard Supply must use the configured default warehouse"))
+
+		warehouse = frappe.db.get_value(
+			"Warehouse",
+			settings.default_warehouse,
+			["name", "company", "disabled", "is_group"],
+			as_dict=True,
+		)
+		if not warehouse or warehouse.disabled or warehouse.is_group or warehouse.company != settings.company:
+			frappe.throw(_("المخزن الافتراضي في إعدادات إدارة الكرتون غير صالح."))
+
+		item = frappe.db.get_value(
+			"Item",
+			self.item,
+			["name", "disabled", "is_stock_item", "item_group", "stock_uom"],
+			as_dict=True,
+		)
+		if not item or item.disabled or not item.is_stock_item:
+			frappe.throw(_("Item must maintain stock"))
+		if item.stock_uom != "Kg":
+			frappe.throw(_("Item Stock UOM must be Kg"))
+		item_groups = [
+			settings.cardboard_item_group,
+			*get_descendants_of("Item Group", settings.cardboard_item_group),
+		]
+		if item.item_group not in item_groups:
+			frappe.throw(_("Select an item from the configured Cardboard Item Group"))
+		return frappe._dict(settings=settings, warehouse=warehouse, item=item, item_groups=item_groups)
 
 	def onload(self):
 		self.refresh_payment_summary()
@@ -296,44 +347,21 @@ class CardboardSupply(Document):
 		if flt(self.total_amount) < 0:
 			frappe.throw(_("Total Amount cannot be negative before Purchase Invoice creation"))
 
+		scope = self._get_operational_scope()
 		supplier = frappe.db.get_value(
 			"Supplier", self.supplier, ["name", "disabled"], as_dict=True
 		)
 		if not supplier or supplier.disabled:
 			frappe.throw(_("Supplier must exist and be enabled"))
 
-		item = frappe.db.get_value(
-			"Item",
-			self.item,
-			["name", "disabled", "is_stock_item", "stock_uom"],
-			as_dict=True,
-		)
-		if not item or item.disabled:
-			frappe.throw(_("Item must exist and be enabled"))
-		if not item.is_stock_item:
-			frappe.throw(_("Item must maintain stock"))
-		if item.stock_uom != "Kg":
-			frappe.throw(_("Item Stock UOM must be Kg"))
-
-		warehouse = frappe.db.get_value(
-			"Warehouse",
-			self.warehouse,
-			["name", "company", "disabled", "is_group"],
-			as_dict=True,
-		)
-		if not warehouse or warehouse.disabled or warehouse.is_group:
-			frappe.throw(_("Warehouse must exist, be enabled, and not be a group"))
-		if not warehouse.company or not frappe.db.exists("Company", warehouse.company):
-			frappe.throw(_("Warehouse must belong to a valid Company"))
-
-		currency = frappe.db.get_value("Company", warehouse.company, "default_currency")
+		currency = frappe.db.get_value("Company", scope.settings.company, "default_currency")
 		if not currency:
 			frappe.throw(_("Warehouse Company must have a default currency"))
 
 		return frappe._dict(
-			company=warehouse.company,
+			company=scope.settings.company,
 			currency=currency,
-			stock_uom=item.stock_uom,
+			stock_uom=scope.item.stock_uom,
 		)
 
 	def _build_purchase_invoice(self, context):
