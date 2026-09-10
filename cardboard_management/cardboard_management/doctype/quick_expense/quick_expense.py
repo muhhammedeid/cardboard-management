@@ -169,31 +169,19 @@ class QuickExpense(Document):
 	def cancel_journal_entry(self):
 		linked_name = self.accounting_document or self._existing_journal_entry_name()
 		if not linked_name:
-			return
+			frappe.throw(_("Quick Expense {0} has no linked Journal Entry").format(frappe.bold(self.name)))
 		if not frappe.db.exists("Journal Entry", linked_name):
-			return
+			frappe.throw(_("Linked Journal Entry {0} does not exist").format(frappe.bold(linked_name)))
 		journal_entry = frappe.get_doc("Journal Entry", linked_name)
-		rows = journal_entry.get("accounts") or []
-		references = {
-			row.reference_name
-			for row in rows
-			if row.reference_type == "Quick Expense" and row.reference_name
-		}
-		if references and references != {self.name}:
-			frappe.throw(
-				_("Linked Journal Entry {0} does not belong to this Quick Expense").format(
-					frappe.bold(linked_name)
-				)
-			)
+		self._validate_journal_entry_mapping(journal_entry)
+		if journal_entry.docstatus == 0:
+			frappe.throw(_("Linked Journal Entry must be submitted before cancelling Quick Expense"))
 		if journal_entry.docstatus == 1:
 			# The forward link from this Quick Expense to the Journal Entry is
 			# intentional: the JE must cancel first while this document keeps its
-			# reference. ignore_linked_doctypes is Frappe's native mechanism for
-			# exactly this cancellation ordering (cf. Journal Entry.on_cancel).
+			# reference.
 			journal_entry.ignore_linked_doctypes = ("Quick Expense",)
 			journal_entry.cancel()
-		elif journal_entry.docstatus == 0:
-			frappe.throw(_("Linked Journal Entry must be submitted before cancelling Quick Expense"))
 
 	def _lock_for_integration(self):
 		frappe.db.sql(
@@ -214,6 +202,8 @@ class QuickExpense(Document):
 		)
 
 	def _complete_existing_journal_entry(self, journal_entry_name):
+		if not frappe.db.exists("Journal Entry", journal_entry_name):
+			frappe.throw(_("Linked Journal Entry {0} does not exist").format(frappe.bold(journal_entry_name)))
 		journal_entry = frappe.get_doc("Journal Entry", journal_entry_name)
 		self._validate_journal_entry_mapping(journal_entry)
 		if journal_entry.docstatus == 0:
@@ -273,23 +263,31 @@ class QuickExpense(Document):
 		return " - ".join(parts)
 
 	def _validate_journal_entry_mapping(self, journal_entry):
-		if journal_entry.company != self.company:
+		if journal_entry.docstatus == 2:
+			frappe.throw(_("Linked Journal Entry is cancelled; a duplicate will not be created"))
+		if self.accounting_document and self.accounting_document != journal_entry.name:
+			frappe.throw(_("Linked Journal Entry does not belong to Quick Expense"))
+		if journal_entry.company != self.company or journal_entry.voucher_type != "Journal Entry":
 			frappe.throw(_("Linked Journal Entry company does not match Quick Expense"))
+		if getdate(journal_entry.posting_date) != getdate(self.posting_date):
+			frappe.throw(_("Linked Journal Entry posting date does not match Quick Expense"))
 		rows = journal_entry.get("accounts") or []
 		if len(rows) != 2:
 			frappe.throw(_("Linked Journal Entry must contain exactly two rows"))
+		if any(row.reference_type != "Quick Expense" or row.reference_name != self.name for row in rows):
+			frappe.throw(_("Linked Journal Entry does not belong to Quick Expense"))
 		expense_row = next(
-			(row for row in rows if row.account == self.expense_account and flt(row.debit) > 0), None
+			(row for row in rows if row.account == self.expense_account and flt(row.debit) > 0 and not flt(row.credit)),
+			None,
 		)
 		payment_row = next(
-			(row for row in rows if row.account == self.payment_account and flt(row.credit) > 0), None
+			(row for row in rows if row.account == self.payment_account and flt(row.credit) > 0 and not flt(row.debit)),
+			None,
 		)
 		if not expense_row or flt(expense_row.debit) != flt(self.amount):
 			frappe.throw(_("Linked Journal Entry expense row does not match Quick Expense"))
 		if not payment_row or flt(payment_row.credit) != flt(self.amount):
 			frappe.throw(_("Linked Journal Entry payment row does not match Quick Expense"))
-		if journal_entry.docstatus == 2:
-			frappe.throw(_("Linked Journal Entry is cancelled; a duplicate will not be created"))
 
 	def _set_journal_entry_link(self, journal_entry_name):
 		self.accounting_document = journal_entry_name

@@ -85,25 +85,26 @@ class CardboardSale(Document):
 			frappe.throw(_(self.INSUFFICIENT_STOCK_MESSAGE))
 
 	def on_submit(self):
-		self.validate_available_stock()
 		self._lock_for_integration()
 		existing_name = self._existing_stock_entry_name()
 		if existing_name:
 			self._complete_existing_stock_entry(existing_name)
-		else:
-			from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
+			return
 
-			stock_entry = make_stock_entry(
-				item_code=self.item,
-				qty=flt(self.quantity),
-				company=self.company,
-				from_warehouse=self.warehouse,
-				purpose="Material Issue",
-				posting_date=self.posting_date,
-				do_not_submit=False,
-			)
-			self._validate_stock_entry_mapping(stock_entry)
-			self._set_stock_entry_link(stock_entry.name)
+		self.validate_available_stock()
+		from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
+
+		stock_entry = make_stock_entry(
+			item_code=self.item,
+			qty=flt(self.quantity),
+			company=self.company,
+			from_warehouse=self.warehouse,
+			purpose="Material Issue",
+			posting_date=self.posting_date,
+			do_not_submit=False,
+		)
+		self._validate_stock_entry_mapping(stock_entry)
+		self._set_stock_entry_link(stock_entry.name)
 
 	def before_cancel(self):
 		# The wrapper's forward link to its native Stock Entry is intentional:
@@ -117,9 +118,9 @@ class CardboardSale(Document):
 		)
 		if not linked_name:
 			frappe.throw(_("Cardboard Sale {0} has no linked Stock Entry").format(frappe.bold(self.name)))
+		if not frappe.db.exists("Stock Entry", linked_name):
+			frappe.throw(_("Linked Stock Entry {0} does not exist").format(frappe.bold(linked_name)))
 		stock_entry = frappe.get_doc("Stock Entry", linked_name)
-		if stock_entry.docstatus == 2:
-			return
 		self._validate_stock_entry_mapping(stock_entry)
 		if stock_entry.docstatus == 0:
 			frappe.throw(_("Generated Stock Entry {0} must be submitted before cancelling").format(frappe.bold(linked_name)))
@@ -139,6 +140,8 @@ class CardboardSale(Document):
 		return self.stock_entry or frappe.db.get_value("Cardboard Sale", self.name, "stock_entry")
 
 	def _complete_existing_stock_entry(self, stock_entry_name):
+		if not frappe.db.exists("Stock Entry", stock_entry_name):
+			frappe.throw(_("Linked Stock Entry {0} does not exist").format(frappe.bold(stock_entry_name)))
 		stock_entry = frappe.get_doc("Stock Entry", stock_entry_name)
 		self._validate_stock_entry_mapping(stock_entry)
 		if stock_entry.docstatus == 0:
@@ -151,7 +154,8 @@ class CardboardSale(Document):
 		precision = stock_entry.precision("transfer_qty")
 		items = stock_entry.items or []
 		if (
-			stock_entry.company != self.company
+			(self.stock_entry and self.stock_entry != stock_entry.name)
+			or stock_entry.company != self.company
 			or stock_entry.purpose != "Material Issue"
 			or len(items) != 1
 			or items[0].item_code != self.item

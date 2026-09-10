@@ -172,13 +172,15 @@ class TestCardboardSupplierPaymentOperationalUx(unittest.TestCase):
             "has no linked Payment Entry",
         ):
             self.assertIn(marker, self.controller)
-        # Native PE must be the only writer; no client mapping of accounts.
-        self.assertNotIn("credit_to", self.controller)
+        # Native mapping must verify the payable side and allocation references.
+        self.assertIn("credit_to", self.controller)
+        self.assertIn("paid_from", self.controller)
+        self.assertIn("paid_to", self.controller)
+        self.assertIn("allocated_amount", self.controller)
         self.assertNotIn("Creditors", self.controller)
 
     def test_controller_cancels_linked_entry_safely(self):
-        # The wrapper cancel path must exist, validate the mapping first, tolerate
-        # an externally cancelled entry, and only then cancel natively.
+        # The wrapper must fail closed for missing, cancelled, or mismatched native entries.
         self.assertIn("def cancel_payment_entry", self.controller)
         cancel_body = self.controller.split("def cancel_payment_entry", 1)[1].split(
             "\n\tdef ", 1)[0]
@@ -188,7 +190,8 @@ class TestCardboardSupplierPaymentOperationalUx(unittest.TestCase):
             cancel_body.index("payment_entry.cancel()"),
         )
         self.assertIn('ignore_linked_doctypes = ("Cardboard Supplier Payment",)', cancel_body)
-        self.assertIn("if payment_entry.docstatus == 2:\n\t\t\treturn", cancel_body)
+        self.assertIn("Generated Payment Entry", cancel_body)
+        self.assertNotIn("if payment_entry.docstatus == 2:\n\t\t\treturn", cancel_body)
 
 
 if __name__ == "__main__":

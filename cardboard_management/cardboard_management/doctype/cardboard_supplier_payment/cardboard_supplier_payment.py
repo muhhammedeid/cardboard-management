@@ -165,8 +165,7 @@ class CardboardSupplierPayment(Document):
 	def cancel_payment_entry(self):
 		# A submitted wrapper owns exactly one native Payment Entry; cancelling
 		# the wrapper cancels that entry so ERPNext itself restores the Purchase
-		# Invoice outstanding amounts. An already-cancelled entry (external
-		# cancellation) is tolerated and only recorded on the wrapper.
+		# Invoice outstanding amounts.
 		linked_name = self.payment_entry or frappe.db.get_value(
 			"Cardboard Supplier Payment", self.name, "payment_entry"
 		)
@@ -176,9 +175,9 @@ class CardboardSupplierPayment(Document):
 					frappe.bold(self.name)
 				)
 			)
+		if not frappe.db.exists("Payment Entry", linked_name):
+			frappe.throw(_("Linked Payment Entry {0} does not exist").format(frappe.bold(linked_name)))
 		payment_entry = frappe.get_doc("Payment Entry", linked_name)
-		if payment_entry.docstatus == 2:
-			return
 		self._validate_payment_entry_mapping(payment_entry)
 		if payment_entry.docstatus == 0:
 			frappe.throw(
@@ -188,10 +187,6 @@ class CardboardSupplierPayment(Document):
 			)
 		# The forward link from this wrapper to the Payment Entry is intentional:
 		# the Payment Entry must cancel first while this document keeps its link.
-		# ERPNext's Payment Entry.on_cancel overwrites ignore_linked_doctypes, so
-		# the parent-driven cancellation uses Frappe's ignore_links flag instead;
-		# the mapping validation above is the stricter check that replaces the
-		# skipped reverse-link validation (cf. ERPNext internal cancel flows).
 		payment_entry.flags.ignore_links = True
 		payment_entry.ignore_linked_doctypes = ("Cardboard Supplier Payment",)
 		payment_entry.cancel()
@@ -228,42 +223,70 @@ class CardboardSupplierPayment(Document):
 
 	def _validate_payment_entry_mapping(self, payment_entry):
 		precision = payment_entry.precision("paid_amount")
-		if payment_entry.company != self.company:
+
+		def mismatch():
 			frappe.throw(
 				_("Generated Payment Entry {0} does not match the payment request").format(
 					frappe.bold(payment_entry.name)
 				)
 			)
-		if payment_entry.party_type != "Supplier" or payment_entry.party != self.supplier:
-			frappe.throw(
-				_("Generated Payment Entry {0} does not match the payment request").format(
-					frappe.bold(payment_entry.name)
-				)
-			)
-		if flt(payment_entry.paid_amount, precision) != flt(self.amount, precision):
-			frappe.throw(
-				_("Generated Payment Entry {0} does not match the payment request").format(
-					frappe.bold(payment_entry.name)
-				)
-			)
-		if getdate(payment_entry.posting_date) != getdate(self.posting_date):
-			frappe.throw(
-				_("Generated Payment Entry {0} does not match the payment request").format(
-					frappe.bold(payment_entry.name)
-				)
-			)
-		if self.mode_of_payment and payment_entry.mode_of_payment != self.mode_of_payment:
-			frappe.throw(
-				_("Generated Payment Entry {0} does not match the payment request").format(
-					frappe.bold(payment_entry.name)
-				)
-			)
+
 		if payment_entry.docstatus == 2:
 			frappe.throw(
 				_("Generated Payment Entry {0} is cancelled; a duplicate will not be created").format(
 					frappe.bold(payment_entry.name)
 				)
 			)
+		if self.payment_entry and self.payment_entry != payment_entry.name:
+			mismatch()
+		if payment_entry.company != self.company:
+			mismatch()
+		if payment_entry.payment_type != "Pay":
+			mismatch()
+		if payment_entry.party_type != "Supplier" or payment_entry.party != self.supplier:
+			mismatch()
+		if flt(payment_entry.paid_amount, precision) != flt(self.amount, precision):
+			mismatch()
+		if flt(payment_entry.received_amount, precision) != flt(self.amount, precision):
+			mismatch()
+		if getdate(payment_entry.posting_date) != getdate(self.posting_date):
+			mismatch()
+		if self.mode_of_payment and payment_entry.mode_of_payment != self.mode_of_payment:
+			mismatch()
+
+		expected_paid_from = get_mapped_payment_account(self.mode_of_payment, self.company)
+		if payment_entry.paid_from != expected_paid_from:
+			mismatch()
+
+		references = payment_entry.references or []
+		if not references:
+			mismatch()
+		total_allocated = 0
+		expected_paid_to = None
+		for reference in references:
+			if reference.reference_doctype != "Purchase Invoice":
+				mismatch()
+			if not reference.reference_name or not frappe.db.exists(
+				"Purchase Invoice", reference.reference_name
+			):
+				mismatch()
+			invoice = frappe.get_doc("Purchase Invoice", reference.reference_name)
+			if invoice.docstatus != 1 or invoice.company != self.company or invoice.supplier != self.supplier:
+				mismatch()
+			if expected_paid_to is None:
+				expected_paid_to = invoice.credit_to
+			elif invoice.credit_to != expected_paid_to:
+				mismatch()
+			allocated = flt(reference.allocated_amount, precision)
+			if allocated <= 0:
+				mismatch()
+			total_allocated += allocated
+
+		if (
+			payment_entry.paid_to != expected_paid_to
+			or flt(total_allocated, precision) != flt(self.amount, precision)
+		):
+			mismatch()
 
 	def _set_payment_entry_link(self, payment_entry_name):
 		self.payment_entry = payment_entry_name
