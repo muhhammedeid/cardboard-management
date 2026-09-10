@@ -13,7 +13,7 @@ frappe.pages["inventory-operational-view"].on_page_load = function (wrapper) {
 
 	page.main.addClass("cm-inventory-operational-view").attr("dir", "rtl");
 
-	page.set_subtitle(__("متابعة المخزون وحركة التوريد والبيع"));
+	page.set_title_sub(__("متابعة المخزون وحركة التوريد والبيع"));
 	page.set_primary_action(__("+ تسجيل بيع"), () => frappe.new_doc("Cardboard Sale"));
 	page.add_action_item(__("تحديث"), () => load());
 	page.add_action_item(__("عرض التفاصيل"), () => {
