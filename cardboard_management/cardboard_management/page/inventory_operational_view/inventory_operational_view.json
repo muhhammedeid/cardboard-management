@@ -1,0 +1,22 @@
+{
+ "content": null,
+ "creation": "2026-09-09 15:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-09-09 15:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cardboard Management",
+ "name": "inventory-operational-view",
+ "owner": "Administrator",
+ "page_name": "inventory-operational-view",
+ "roles": [
+  {
+   "role": "Cardboard Operator"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "title": "المخزون الحالي"
+}

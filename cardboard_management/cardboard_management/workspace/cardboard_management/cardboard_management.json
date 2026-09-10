@@ -121,11 +121,22 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Inventory",
-   "link_count": 3,
+   "link_count": 4,
    "link_to": "Item",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Operational Inventory",
+   "link_count": 0,
+   "link_to": "inventory-operational-view",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
   },
   {
    "dependencies": "",
@@ -227,7 +238,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-09-09 14:19:32.000000",
+ "modified": "2026-09-09 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cardboard Management",
  "name": "Cardboard Management",
@@ -344,8 +355,8 @@
   {
    "color": "Grey",
    "label": "Inventory",
-   "link_to": "Stock Balance",
-   "type": "Report"
+   "link_to": "inventory-operational-view",
+   "type": "Page"
   },
   {
    "color": "Grey",

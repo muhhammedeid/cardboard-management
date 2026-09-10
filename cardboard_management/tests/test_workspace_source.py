@@ -28,7 +28,7 @@ MAIN_AREAS = [
     ("Suppliers", "DocType", "Supplier", "List"),
     ("Payments", "DocType", "Cardboard Supplier Payment", "List"),
     ("Expenses", "DocType", "Quick Expense", "List"),
-    ("Inventory", "Report", "Stock Balance", None),
+    ("Inventory", "Page", "inventory-operational-view", None),
     ("Reports", "Report", "Accounts Payable", None),
 ]
 

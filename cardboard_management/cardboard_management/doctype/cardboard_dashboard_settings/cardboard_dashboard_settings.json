@@ -5,6 +5,7 @@
  "engine": "InnoDB",
  "field_order": [
   "company",
+  "default_warehouse",
   "cardboard_item_group"
  ],
  "fields": [
@@ -16,6 +17,12 @@
    "reqd": 1
   },
   {
+   "fieldname": "default_warehouse",
+   "fieldtype": "Link",
+   "label": "Default Warehouse",
+   "options": "Warehouse"
+  },
+  {
    "fieldname": "cardboard_item_group",
    "fieldtype": "Link",
    "label": "Cardboard Item Group",
@@ -25,7 +32,7 @@
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-09-07 16:00:00.000000",
+ "modified": "2026-09-09 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cardboard Management",
  "name": "Cardboard Dashboard Settings",

@@ -39,7 +39,8 @@
 			return true;
 		}
 
-		return (view === "Form" || view === "List") && OPERATIONAL_DOCTYPES.has(target);
+		return (view === "Form" || view === "List") && OPERATIONAL_DOCTYPES.has(target)
+			|| (view === "Page" && target === "inventory-operational-view");
 	}
 
 	function is_workspace_route(route) {

@@ -18,6 +18,7 @@ OPERATOR_PERMISSIONS = {
 	"Cardboard Supply": {"read", "write", "create", "submit"},
 	"Quick Expense": {"read", "write", "create", "submit"},
 	"Cardboard Supplier Payment": {"read", "write", "create", "submit"},
+	"Cardboard Dashboard Settings": {"read", "write"},
 	"Supplier": {"read", "write", "create"},
 	# Read-only dependencies required by Supplier account resolution and report links.
 	"Account": {"read"},
