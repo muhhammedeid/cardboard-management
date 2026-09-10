@@ -49,13 +49,16 @@ frappe.pages["inventory-operational-view"].on_page_load = function (wrapper) {
 			})).join("");
 		const cards = (data.rows || []).map((row) => `
 			<article class="cm-inventory-card">
-				<h3>${escape(row.item_name)}</h3>
-				<div class="cm-inventory-quantity cm-ltr-value">${frappe.format(row.quantity, { fieldtype: "Float", precision: 3 })} ${escape(row.stock_uom)}</div>
-				<div class="cm-inventory-value">القيمة: <span class="cm-ltr-value">${currency(row.stock_value, data.currency)}</span></div>
+				<header class="cm-inventory-card-header">
+					<h3>${escape(row.item_name)}</h3>
+					<span class="cm-inventory-uom">${escape(row.stock_uom)}</span>
+				</header>
+				<div class="cm-inventory-quantity"><bdi class="cm-inventory-number">${frappe.format(row.quantity, { fieldtype: "Float", precision: 3 })}</bdi></div>
+				<div class="cm-inventory-value"><span>القيمة</span><bdi class="cm-inventory-number">${currency(row.stock_value, data.currency)}</bdi></div>
 			</article>`).join("");
 		const quantitySummary = data.summary.quantity === null
 			? "لا يمكن جمع الكميات لاختلاف وحدات القياس."
-			: `<span class="cm-ltr-value">${frappe.format(data.summary.quantity, { fieldtype: "Float", precision: 3 })} ${escape(data.summary.uom)}</span>`;
+			: `<bdi class="cm-inventory-number">${frappe.format(data.summary.quantity, { fieldtype: "Float", precision: 3 })} ${escape(data.summary.uom)}</bdi>`;
 
 		page.main.html(`
 			<section class="cm-inventory-shell">
@@ -63,11 +66,14 @@ frappe.pages["inventory-operational-view"].on_page_load = function (wrapper) {
 					<label for="cm-cardboard-item">نوع الكرتون</label>
 					<select id="cm-cardboard-item" class="form-control">${options}</select>
 				</div>
-				<p class="cm-inventory-context">الشركة: ${escape(data.company)} · المخزن: ${escape(data.warehouse_name)}</p>
+				<div class="cm-inventory-context-badges">
+					<div class="cm-inventory-context-badge"><span>الشركة</span><strong>${escape(data.company)}</strong></div>
+					<div class="cm-inventory-context-badge"><span>المخزن</span><strong>${escape(data.warehouse_name)}</strong></div>
+				</div>
 				<div class="cm-inventory-cards">${cards}</div>
 				<section class="cm-inventory-summary">
-					<div><strong>إجمالي الوزن</strong><br>${quantitySummary}</div>
-					<div><strong>إجمالي القيمة</strong><br><span class="cm-ltr-value">${currency(data.summary.stock_value, data.currency)}</span></div>
+					<div class="cm-inventory-summary-item"><span class="cm-inventory-summary-label">إجمالي الوزن</span><strong class="cm-inventory-summary-value">${quantitySummary}</strong></div>
+					<div class="cm-inventory-summary-item"><span class="cm-inventory-summary-label">إجمالي القيمة</span><strong class="cm-inventory-summary-value"><bdi class="cm-inventory-number">${currency(data.summary.stock_value, data.currency)}</bdi></strong></div>
 				</section>
 			</section>`);
 		page.main.find("#cm-cardboard-item").on("change", function () {

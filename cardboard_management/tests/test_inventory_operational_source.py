@@ -58,6 +58,29 @@ class TestInventoryOperationalSource(unittest.TestCase):
         self.assertIn("get_inventory_overview", source)
         self.assertNotIn("Stock Ledger", source)
 
+    def test_inventory_page_has_compact_context_cards_and_bidi_safe_values(self):
+        source = (PAGE / "inventory_operational_view.js").read_text(encoding="utf-8")
+        css = (APP / "public" / "css" / "cardboard_management.css").read_text(encoding="utf-8")
+        for marker in (
+            "cm-inventory-context-badges",
+            "cm-inventory-context-badge",
+            "cm-inventory-card-header",
+            "cm-inventory-uom",
+            "cm-inventory-summary-label",
+            "cm-inventory-summary-value",
+            "bdi",
+        ):
+            self.assertIn(marker, source)
+        for marker in (
+            ".cm-inventory-context-badges",
+            ".cm-inventory-context-badge",
+            ".cm-inventory-card",
+            ".cm-inventory-summary",
+            "max-width: 70rem",
+            "unicode-bidi: isolate",
+        ):
+            self.assertIn(marker, css)
+
     def test_workspace_inventory_enters_operational_page_and_keeps_stock_balance_secondary(self):
         workspace = json.loads(WORKSPACE.read_text(encoding="utf-8"))
         shortcuts = {item["label"]: item for item in workspace["shortcuts"]}
