@@ -1,4 +1,4 @@
-"""Database-free contracts for P03-W06 operational inventory."""
+"""Database-free contracts for P03-W07 operational inventory dashboard."""
 import json
 import unittest
 from pathlib import Path
@@ -39,11 +39,35 @@ class TestInventoryOperationalSource(unittest.TestCase):
             "stock_balance.execute",
             "item_code",
             "stock_value",
+            "selected_date",
+            "activity",
         ):
             self.assertIn(marker, source)
         self.assertNotIn("CARDBOARD-A", source)
         self.assertNotIn("CARDBOARD-B", source)
-        self.assertNotIn("Stock Ledger", source)
+        for forbidden in ("Stock Ledger", "Sales Invoice", "GL Entry"):
+            self.assertNotIn(forbidden, source)
+
+    def test_inventory_backend_supports_historical_date_semantics(self):
+        source = (APP / "inventory.py").read_text(encoding="utf-8")
+        # Historical selection is an end-of-day snapshot: the Stock Balance window
+        # must end on the selected date, and future dates must be rejected.
+        self.assertIn("to_date", source)
+        self.assertIn("getdate(selected_date)", source)
+        self.assertIn("nowdate()", source)
+
+    def test_inventory_backend_returns_daily_supply_and_sale_activity(self):
+        source = (APP / "inventory.py").read_text(encoding="utf-8")
+        for marker in (
+            "Cardboard Supply",
+            "Cardboard Sale",
+            "net_weight",
+            "quantity",
+            "supplies",
+            "sales",
+            "docstatus",
+        ):
+            self.assertIn(marker, source)
 
     def test_app_owned_page_is_arabic_operational_and_all_is_default(self):
         page = json.loads((PAGE / "inventory_operational_view.json").read_text(encoding="utf-8"))
@@ -52,7 +76,26 @@ class TestInventoryOperationalSource(unittest.TestCase):
         self.assertEqual(page["roles"], [{"role": "Cardboard Operator"}])
 
         source = (PAGE / "inventory_operational_view.js").read_text(encoding="utf-8")
-        for marker in ("المخزون الحالي", "كل الأنواع", "تحديث", "عرض التفاصيل", "ج.م"):
+        for marker in (
+            "المخزون",
+            "متابعة المخزون وحركة التوريد والبيع",
+            "كل الأنواع",
+            "تحديث",
+            "عرض التفاصيل",
+            "ج.م",
+            "التاريخ",
+            "اليوم",
+            "+ تسجيل بيع",
+            "Cardboard Sale",
+            "إجمالي المخزون",
+            "قيمة المخزون",
+            "توريدات اليوم",
+            "مبيعات اليوم",
+            "حركة اليوم",
+            "عرض توريدات اليوم",
+            "عرض مبيعات اليوم",
+            "selected_date",
+        ):
             self.assertIn(marker, source)
         self.assertIn("selected_item: null", source)
         self.assertIn("get_inventory_overview", source)
@@ -66,8 +109,9 @@ class TestInventoryOperationalSource(unittest.TestCase):
             "cm-inventory-context-badge",
             "cm-inventory-card-header",
             "cm-inventory-uom",
-            "cm-inventory-summary-label",
-            "cm-inventory-summary-value",
+            "cm-inventory-kpi-label",
+            "cm-inventory-kpi-value",
+            "cm-inventory-kpi",
             "bdi",
         ):
             self.assertIn(marker, source)
@@ -75,7 +119,8 @@ class TestInventoryOperationalSource(unittest.TestCase):
             ".cm-inventory-context-badges",
             ".cm-inventory-context-badge",
             ".cm-inventory-card",
-            ".cm-inventory-summary",
+            ".cm-inventory-activity",
+            ".cm-inventory-kpi",
             "max-width: 70rem",
             "unicode-bidi: isolate",
         ):
@@ -94,6 +139,14 @@ class TestInventoryOperationalSource(unittest.TestCase):
         source = (APP / "setup.py").read_text(encoding="utf-8")
         self.assertIn('"Cardboard Dashboard Settings": {"read", "write"}', source)
         self.assertNotIn('"Cardboard Dashboard Settings": {"read", "write", "delete"}', source)
+
+    def test_operator_can_record_sales_without_native_stock_access(self):
+        source = (APP / "setup.py").read_text(encoding="utf-8")
+        self.assertIn('"Cardboard Sale": {"read", "write", "create", "submit"}', source)
+        self.assertNotIn('"Stock Entry"', source)
+        self.assertNotIn('"Sales Order"', source)
+        self.assertNotIn('"Sales Invoice"', source)
+        self.assertNotIn('"Delivery Note"', source)
 
 
 if __name__ == "__main__":

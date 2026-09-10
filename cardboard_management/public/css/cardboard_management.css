@@ -89,7 +89,7 @@ body.cardboard-management-surface.cardboard-management-rtl .workspace-container 
 	text-align: right;
 }
 
-/* P03-W06: read-only operational inventory cards. */
+/* P03-W07: operational inventory dashboard. */
 body.cardboard-management-surface .cm-inventory-operational-view {
 	max-width: 70rem;
 	margin-inline: auto;
@@ -99,13 +99,58 @@ body.cardboard-management-surface .cm-inventory-operational-view {
 
 body.cardboard-management-surface .cm-inventory-shell {
 	display: grid;
-	gap: 0.875rem;
+	gap: 1rem;
 }
 
 body.cardboard-management-surface .cm-inventory-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: end;
+	gap: 1rem;
+}
+
+body.cardboard-management-surface .cm-inventory-filter {
 	display: grid;
 	gap: 0.375rem;
-	max-width: 21rem;
+	min-width: 13rem;
+}
+
+body.cardboard-management-surface .cm-inventory-filter .cm-inventory-today {
+	margin-block-start: 0.25rem;
+}
+
+body.cardboard-management-surface .cm-inventory-kpi-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+	gap: 0.75rem;
+}
+
+body.cardboard-management-surface .cm-inventory-kpi {
+	display: grid;
+	gap: 0.35rem;
+	padding: 0.875rem 1rem;
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	background: var(--fg-color);
+}
+
+body.cardboard-management-surface .cm-inventory-kpi-label {
+	color: var(--text-muted);
+	font-size: 0.8rem;
+}
+
+body.cardboard-management-surface .cm-inventory-kpi-value {
+	font-size: 1.35rem;
+	font-weight: 700;
+	line-height: 1.2;
+}
+
+body.cardboard-management-surface .cm-inventory-kpi-value.cm-inventory-in {
+	color: var(--subtle-text, var(--text-color));
+}
+
+body.cardboard-management-surface .cm-inventory-kpi-value.cm-inventory-out {
+	color: var(--danger, var(--text-color));
 }
 
 body.cardboard-management-surface .cm-inventory-context-badges {
@@ -125,8 +170,9 @@ body.cardboard-management-surface .cm-inventory-context-badge {
 }
 
 body.cardboard-management-surface .cm-inventory-context-badge span,
-body.cardboard-management-surface .cm-inventory-summary-label,
-body.cardboard-management-surface .cm-inventory-value > span {
+body.cardboard-management-surface .cm-inventory-value > span,
+body.cardboard-management-surface .cm-inventory-quantity > span,
+body.cardboard-management-surface .cm-inventory-rate > span {
 	color: var(--text-muted);
 	font-size: 0.8rem;
 }
@@ -148,8 +194,7 @@ body.cardboard-management-surface .cm-inventory-card {
 	box-shadow: var(--shadow-sm);
 }
 
-body.cardboard-management-surface .cm-inventory-card-header,
-body.cardboard-management-surface .cm-inventory-value {
+body.cardboard-management-surface .cm-inventory-card-header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -161,12 +206,27 @@ body.cardboard-management-surface .cm-inventory-card h3 {
 	font-size: 1.05rem;
 }
 
+body.cardboard-management-surface .cm-inventory-code {
+	margin: -0.5rem 0 0;
+	color: var(--text-muted);
+	font-size: 0.75rem;
+}
+
 body.cardboard-management-surface .cm-inventory-uom {
 	padding: 0.2rem 0.5rem;
 	border-radius: 999px;
 	background: var(--control-bg);
 	color: var(--text-muted);
 	font-size: 0.8rem;
+}
+
+body.cardboard-management-surface .cm-inventory-quantity,
+body.cardboard-management-surface .cm-inventory-value,
+body.cardboard-management-surface .cm-inventory-rate {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
 }
 
 body.cardboard-management-surface .cm-inventory-quantity {
@@ -181,25 +241,50 @@ body.cardboard-management-surface .cm-inventory-number {
 	white-space: nowrap;
 }
 
-body.cardboard-management-surface .cm-inventory-summary {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-	gap: 1px;
-	overflow: hidden;
+body.cardboard-management-surface .cm-inventory-activity {
 	border: 1px solid var(--border-color);
 	border-radius: var(--border-radius-md);
-	background: var(--border-color);
+	background: var(--fg-color);
+	padding: 1rem;
 }
 
-body.cardboard-management-surface .cm-inventory-summary-item {
+body.cardboard-management-surface .cm-inventory-activity > header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-block-end: 0.75rem;
+}
+
+body.cardboard-management-surface .cm-inventory-activity h4 {
+	margin: 0;
+}
+
+body.cardboard-management-surface .cm-inventory-date-badge {
+	color: var(--text-muted);
+	font-size: 0.8rem;
+}
+
+body.cardboard-management-surface .cm-inventory-activity-grid {
 	display: grid;
-	gap: 0.35rem;
-	padding: 0.875rem 1rem;
+	grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+	gap: 0.75rem;
+}
+
+body.cardboard-management-surface .cm-inventory-activity-item {
+	display: grid;
+	gap: 0.2rem;
+	padding: 0.75rem;
+	border-radius: var(--border-radius-sm);
 	background: var(--control-bg);
 }
 
-body.cardboard-management-surface .cm-inventory-summary-value {
-	font-size: 1.15rem;
+body.cardboard-management-surface .cm-inventory-activity-item > span {
+	color: var(--text-muted);
+	font-size: 0.8rem;
+}
+
+body.cardboard-management-surface .cm-inventory-activity-item > strong {
+	font-size: 1.1rem;
 }
 
 body.cardboard-management-surface .cm-inventory-empty {
