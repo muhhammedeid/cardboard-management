@@ -41,21 +41,21 @@ frappe.pages["inventory-operational-view"].on_page_load = function (wrapper) {
 	}
 
 	function listRoute() {
-		const filters = {};
-		if (state.data) {
-			filters.company = state.data.company;
-			filters.warehouse = state.data.warehouse;
-		}
+		// Standard list route filters (frappe.route_options): selected day,
+		// resolved installation context, and the chosen type when not ALL.
+		// Cardboard Supply has no company column; its company is the warehouse's.
+		const filters = { posting_date: state.data.selected_date };
+		filters.warehouse = state.data.warehouse;
 		if (state.selected_item) filters.item = state.selected_item;
 		return filters;
 	}
 
 	function showSupplies() {
-		frappe.set_route("Form", "List", "Cardboard Supply", listRoute());
+		frappe.set_route("List", "Cardboard Supply", listRoute());
 	}
 
 	function showSales() {
-		frappe.set_route("Form", "List", "Cardboard Sale", listRoute());
+		frappe.set_route("List", "Cardboard Sale", listRoute());
 	}
 
 	function renderError(message) {
