@@ -163,9 +163,13 @@ def _ensure_cardboard_operator_permissions():
 			"Custom DocPerm",
 			filters={"parent": doctype, "role": OPERATOR_ROLE, "permlevel": 0, "if_owner": 0},
 			pluck="name",
+			order_by="name asc",
 		)
 		if not rows:
 			add_permission(doctype, OPERATOR_ROLE)
+		else:
+			for duplicate in rows[1:]:
+				frappe.db.delete("Custom DocPerm", {"name": duplicate})
 		for permission in OPERATOR_PERMISSION_FIELDS:
 			update_permission_property(
 				doctype,
