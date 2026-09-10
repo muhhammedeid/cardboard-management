@@ -35,7 +35,7 @@ Arabic-first stack: `Noto Sans Arabic`, `Noto Sans`, Tahoma, Arial, sans-serif. 
 
 ### Numbers and codes
 
-The app root is `.cm-app[dir="rtl"]`. **No frontend business calculations** are permitted. Arabic is RTL; numbers, quantities, currency, percentages, and English codes use the `ltr()`/`formatCurrency()`/`formatQuantity()`/`formatCode()` helpers, which render `<bdi dir="ltr">` and use tabular numerals. Formatting delegates to trusted Frappe formatting where available. No business totals, financial rounding, stock, supplier state, or report aggregate is calculated in the frontend.
+The app root is `.cm-app[dir="rtl"]`. **No frontend business calculations** are permitted. Arabic is RTL; numbers, quantities, currency, percentages, and English codes use the `ltr()`/`formatCurrency()`/`formatQuantity()`/`formatCode()` helpers. These helpers create `<bdi dir="ltr">` DOM nodes with `textContent`; callers append or replace a value slot rather than interpolating formatter output into an HTML string. Formatting delegates to trusted Frappe formatting where available and strips presentation-only alignment markup. No business totals, financial rounding, stock, supplier state, or report aggregate is calculated in the frontend.
 
 ## Shell and components
 

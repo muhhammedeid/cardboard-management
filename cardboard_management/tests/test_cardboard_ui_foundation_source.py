@@ -8,6 +8,7 @@ APP_ROOT = PACKAGE.parent
 CSS = PACKAGE / "public" / "css" / "cardboard_ui.css"
 JS = PACKAGE / "public" / "js" / "cardboard_ui.js"
 PAGE = PACKAGE / "cardboard_management" / "page" / "cardboard_ui_foundation"
+PAGE_JS = PAGE / "cardboard_ui_foundation.js"
 DOC = APP_ROOT / "docs" / "ui" / "cardboard-design-system.md"
 HOOKS = PACKAGE / "hooks.py"
 
@@ -76,6 +77,41 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
         self.assertNotIn('frappe.db.', js)
         self.assertNotIn('calculateTotal', js)
 
+    def test_foundation_surface_exposes_app_shell_and_hides_desk_chrome(self):
+        css = CSS.read_text(encoding="utf-8")
+        page = PAGE_JS.read_text(encoding="utf-8")
+        self.assertIn('mountAppShell(page.main[0]', page)
+        self.assertIn('active: "home"', page)
+        self.assertIn('body[data-route="Page/cardboard-ui-foundation"] .navbar', css)
+        self.assertIn('body[data-route="Page/cardboard-ui-foundation"] .page-head', css)
+        self.assertIn('.cm-foundation-review', css)
+
+    def test_bidi_formatters_build_safe_dom_values(self):
+        js = JS.read_text(encoding="utf-8")
+        page = PAGE_JS.read_text(encoding="utf-8")
+        for marker in (
+            'document.createElement("bdi")',
+            'setAttribute("dir", "ltr")',
+            '.textContent =',
+            'formatDisplayText',
+        ):
+            self.assertIn(marker, js)
+        self.assertNotIn('return `<bdi', js)
+        self.assertIn('replaceWith(ui.formatCurrency', page)
+        self.assertIn('replaceWith(ui.formatQuantity', page)
+        self.assertIn('replaceWith(ui.formatCode', page)
+        self.assertNotIn('${ui.formatCurrency', page)
+        self.assertNotIn('${ui.formatQuantity', page)
+        self.assertNotIn('${ui.formatCode', page)
+
+    def test_scale_status_and_review_density_are_compact(self):
+        css = CSS.read_text(encoding="utf-8")
+        for marker in (
+            'justify-self:start',
+            'width:max-content',
+            '.cm-foundation-review .cm-empty-state',
+        ):
+            self.assertIn(marker, css)
     def test_foundation_document_records_sources_and_forbidden_dependencies(self):
         document = DOC.read_text(encoding="utf-8")
         for marker in (
