@@ -9,6 +9,7 @@ CSS = PACKAGE / "public" / "css" / "cardboard_ui.css"
 JS = PACKAGE / "public" / "js" / "cardboard_ui.js"
 PAGE = PACKAGE / "cardboard_management" / "page" / "cardboard_ui_foundation"
 PAGE_JS = PAGE / "cardboard_ui_foundation.js"
+RUNTIME_TEST = PACKAGE / "tests" / "cardboard_ui_foundation_runtime.test.js"
 DOC = APP_ROOT / "docs" / "ui" / "cardboard-design-system.md"
 HOOKS = PACKAGE / "hooks.py"
 
@@ -19,6 +20,7 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
         self.assertTrue(JS.is_file())
         self.assertTrue((PAGE / "cardboard_ui_foundation.js").is_file())
         self.assertTrue((PAGE / "cardboard_ui_foundation.json").is_file())
+        self.assertTrue(RUNTIME_TEST.is_file())
         self.assertTrue(DOC.is_file())
 
     def test_assets_are_registered_and_scoped_to_the_app(self):
@@ -46,7 +48,7 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
             '--cm-radius-control: 0.5rem',
             '--cm-shadow-overlay:',
             '--cm-focus-ring:',
-            '--cm-breakpoint-tablet: 640px',
+            '--cm-breakpoint-tablet: 768px',
             '--cm-breakpoint-desktop: 1024px',
             'font-variant-numeric: tabular-nums',
             'unicode-bidi: isolate',
@@ -94,12 +96,15 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
             'setAttribute("dir", "ltr")',
             '.textContent =',
             'formatDisplayText',
+            'normalizeDisplayText',
         ):
             self.assertIn(marker, js)
+        self.assertIn('renderBidiValue', js)
         self.assertNotIn('return `<bdi', js)
-        self.assertIn('replaceWith(ui.formatCurrency', page)
-        self.assertIn('replaceWith(ui.formatQuantity', page)
-        self.assertIn('replaceWith(ui.formatCode', page)
+        self.assertIn('ui.renderBidiValue', page)
+        self.assertNotIn('replaceWith(ui.formatCurrency', page)
+        self.assertNotIn('replaceWith(ui.formatQuantity', page)
+        self.assertNotIn('replaceWith(ui.formatCode', page)
         self.assertNotIn('${ui.formatCurrency', page)
         self.assertNotIn('${ui.formatQuantity', page)
         self.assertNotIn('${ui.formatCode', page)
@@ -112,14 +117,49 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
             '.cm-foundation-review .cm-empty-state',
         ):
             self.assertIn(marker, css)
+    def test_golden_reference_calibration_is_explicit(self):
+        css = CSS.read_text(encoding="utf-8")
+        for marker in (
+            '--cm-sidebar-width: 280px',
+            '--cm-sidebar-collapsed-width: 80px',
+            '--cm-header-height: 64px',
+            '--cm-breakpoint-tablet: 768px',
+            'direction: ltr;',
+            'border-left: 1px solid var(--cm-color-border);',
+            'grid-template-columns: minmax(0, 1fr) var(--cm-sidebar-width)',
+            '.cm-foundation-review .cm-page-title { font-size: 18px',
+            '.cm-foundation-review .cm-empty-state { min-height: 0',
+            '.cm-foundation-review .cm-data-table th',
+            '.cm-kpi-card { min-height: 0',
+        ):
+            self.assertIn(marker, css)
+
+    def test_review_uses_one_text_to_dom_bidi_contract(self):
+        js = JS.read_text(encoding="utf-8")
+        page = PAGE_JS.read_text(encoding="utf-8")
+        for marker in ('createBidiValue', 'renderBidiValue', 'textContent =', 'setAttribute("dir", "ltr")'):
+            self.assertIn(marker, js)
+        for marker in ('ui.renderBidiValue(body', 'ui.formatCurrency(5200', 'ui.formatQuantity(900', 'ui.formatCode("CARDBOARD-A"'):
+            self.assertIn(marker, page)
+        self.assertNotIn('replaceWith(ui.formatCurrency', page)
+        self.assertNotIn('replaceWith(ui.formatQuantity', page)
+        self.assertNotIn('replaceWith(ui.formatCode', page)
+        self.assertNotIn('${ui.formatCurrency', page)
+        self.assertNotIn('${ui.formatQuantity', page)
+        self.assertNotIn('${ui.formatCode', page)
+
     def test_foundation_document_records_sources_and_forbidden_dependencies(self):
         document = DOC.read_text(encoding="utf-8")
         for marker in (
             'P04-W00', 'Industrial Tactile RTL', 'Noto Sans Arabic',
             'Tailwind CDN: forbidden', 'Material Symbols CDN: forbidden',
             'Numbers and codes', 'No frontend business calculations',
+            'Golden reference calibration', '280px', '80px', '64px',
+            'renderBidiValue',
         ):
             self.assertIn(marker, document)
+        self.assertNotIn('264 px right rail', document)
+        self.assertNotIn('640–1023px', document)
 
 
 if __name__ == '__main__':

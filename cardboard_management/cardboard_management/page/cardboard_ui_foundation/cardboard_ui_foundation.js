@@ -33,12 +33,12 @@ frappe.pages["cardboard-ui-foundation"].on_page_load = function (wrapper) {
 	<section class="cm-card cm-review-section"><div class="cm-review-section__heading"><h2 class="cm-page-title">قائمة متجاوبة</h2><span class="cm-page-subtitle">جدول سطح المكتب وبطاقة الهاتف</span></div><table class="cm-data-table"><thead><tr><th>الهوية</th><th>الحالة</th><th>قيمة معزولة</th><th class="cm-table-actions">إجراء</th></tr></thead><tbody><tr><td><span data-cm-value="table-code"></span></td><td><span class="cm-status cm-status--approved">معتمد</span></td><td><span data-cm-value="table-weight"></span></td><td class="cm-table-actions">عرض</td></tr></tbody></table><article class="cm-record-card cm-review-mobile-record"><div class="cm-record-card__head"><strong><span data-cm-value="record-code"></span></strong><span class="cm-status cm-status--approved">معتمد</span></div><div class="cm-record-card__facts"><span>قيمة معزولة</span><span data-cm-value="record-weight"></span></div></article></section>
 	<section class="cm-empty-state cm-foundation-empty"><h2>لا توجد بيانات ضمن الفترة المحددة</h2><p>يوفر هذا المثال بنية الحالة الفارغة فقط.</p><button class="cm-button cm-button--primary">إجراء مرتبط</button></section>`;
 
-	body.querySelector('[data-cm-value="currency"]').replaceWith(ui.formatCurrency(5200, "EGP"));
-	body.querySelector('[data-cm-value="weight"]').replaceWith(ui.formatQuantity(900, "Kg"));
-	body.querySelector('[data-cm-value="table-code"]').replaceWith(ui.formatCode("CARDBOARD-A"));
-	body.querySelector('[data-cm-value="table-weight"]').replaceWith(ui.formatQuantity(900, "Kg"));
-	body.querySelector('[data-cm-value="record-code"]').replaceWith(ui.formatCode("CARDBOARD-A"));
-	body.querySelector('[data-cm-value="record-weight"]').replaceWith(ui.formatQuantity(900, "Kg"));
+	ui.renderBidiValue(body, '[data-cm-value="currency"]', ui.formatCurrency(5200, "EGP"), "cm-number cm-currency");
+	ui.renderBidiValue(body, '[data-cm-value="weight"]', ui.formatQuantity(900, "Kg"), "cm-number cm-quantity");
+	ui.renderBidiValue(body, '[data-cm-value="table-code"]', ui.formatCode("CARDBOARD-A"), "cm-code");
+	ui.renderBidiValue(body, '[data-cm-value="table-weight"]', ui.formatQuantity(900, "Kg"), "cm-number cm-quantity");
+	ui.renderBidiValue(body, '[data-cm-value="record-code"]', ui.formatCode("CARDBOARD-A"), "cm-code");
+	ui.renderBidiValue(body, '[data-cm-value="record-weight"]', ui.formatQuantity(900, "Kg"), "cm-number cm-quantity");
 
 	page.main.find("[data-demo-dialog]").on("click", () => ui.createDialog(page.main[0], {
 		title: "تأكيد تجريبي",

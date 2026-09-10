@@ -21,18 +21,33 @@
 		return window.frappe?.format ? window.frappe.format(value, options) : String(value ?? "—");
 	}
 
-	// Frappe's display formatters may return alignment markup. Parse it in a
-	// detached node and retain only the readable text before it reaches the UI.
-	function formatDisplayText(value, options) {
-		const formatted = options ? format(value, options) : value;
-		const holder = document.createElement("span");
-		holder.innerHTML = String(formatted ?? "");
-		return (holder.textContent || "")
+	// Frappe display formatters can return raw markup or markup escaped by a
+	// surrounding renderer. Decode at most three times in detached elements,
+	// then keep only the final plain display value.
+	function normalizeDisplayText(value) {
+		let text = String(value ?? "");
+		for (let pass = 0; pass < 3; pass += 1) {
+			const holder = document.createElement("span");
+			holder.innerHTML = text;
+			const next = holder.textContent || "";
+			if (next === text) break;
+			text = next;
+		}
+		return text
+			.replace(/<\/?[a-z][^>]*>/gi, "")
+			.replace(/&lt;\/?[a-z][^&]*&gt;/gi, "")
 			.replace(/\s+/g, " ")
-			.trim()
+			.trim();
+	}
+
+	function formatDisplayText(value, options) {
+		const formatted = options ? format(value, options) : String(value ?? "—");
+		return normalizeDisplayText(formatted)
 			.replaceAll(MALFORMED_EGP_SYMBOL, "ج.م");
 	}
 
+	// Formatters return plain text. Rendering is a separate DOM-owned contract:
+	// create one bidi node and assign the final display value through textContent.
 	function createBidiValue(value, className = "cm-number") {
 		const node = document.createElement("bdi");
 		node.setAttribute("dir", "ltr");
@@ -41,27 +56,30 @@
 		return node;
 	}
 
-	// Value helpers return DOM nodes, never HTML strings. Callers append or
-	// replace a slot with the node so formatted markup cannot become visible text.
+	function renderBidiValue(root, selector, value, className = "cm-number") {
+		const slot = root?.querySelector(selector);
+		if (!slot) return null;
+		const node = createBidiValue(value, className);
+		slot.replaceWith(node);
+		return node;
+	}
+
 	function ltr(value, className = "cm-number") {
 		return createBidiValue(formatDisplayText(value), className);
 	}
 
 	function formatCurrency(value, currency) {
-		return createBidiValue(
-			formatDisplayText(value, { fieldtype: "Currency", options: currency }),
-			"cm-number cm-currency"
-		);
+		return formatDisplayText(value, { fieldtype: "Currency", options: currency });
 	}
 
 	function formatQuantity(value, uom) {
 		const quantity = formatDisplayText(value, { fieldtype: "Float" });
 		const unit = formatDisplayText(uom || "");
-		return createBidiValue(`${quantity} ${unit}`.trim(), "cm-number cm-quantity");
+		return `${quantity} ${unit}`.trim();
 	}
 
 	function formatCode(value) {
-		return createBidiValue(formatDisplayText(value), "cm-code");
+		return formatDisplayText(value);
 	}
 
 	function icon(name) {
@@ -155,6 +173,7 @@
 
 	window.CardboardManagementUI = Object.freeze({
 		mountAppShell, createPageFrame, createQuickAction, createDialog, createDrawer,
-		formatDisplayText, formatCurrency, formatQuantity, formatCode, ltr,
+		formatDisplayText, createBidiValue, renderBidiValue, formatCurrency, formatQuantity,
+		formatCode, ltr,
 	});
 })();
