@@ -74,12 +74,73 @@ class TestOperatorRuntimePermissions(FrappeTestCase):
     def test_operator_can_read_stock_balance_warehouse_type_filter(self):
         self.assertIsInstance(frappe.get_list("Warehouse Type", fields=["name"], limit_page_length=20), list)
 
-    def test_operator_cannot_modify_account_or_direct_erp_documents(self):
-        for doctype in ("Account", "Payment Entry", "Purchase Invoice"):
+    def test_operator_cannot_run_stock_ledger(self):
+        with self.assertRaises(frappe.PermissionError):
+            self.run_report(
+                "Stock Ledger",
+                {"company": COMPANY, "warehouse": WAREHOUSE, "from_date": "2026-01-01", "to_date": nowdate()},
+            )
+
+    def test_operator_cannot_access_forbidden_erp_documents(self):
+        for doctype in (
+            "Stock Entry",
+            "Payment Entry",
+            "Sales Invoice",
+            "Delivery Note",
+            "Sales Order",
+        ):
+            self.assertFalse(frappe.has_permission(doctype, "read"), doctype)
             self.assertFalse(frappe.has_permission(doctype, "create"), doctype)
             self.assertFalse(frappe.has_permission(doctype, "write"), doctype)
-        self.assertFalse(frappe.has_permission("Journal Entry", "create"))
-        self.assertFalse(frappe.has_permission("Stock Entry", "create"))
+        for ptype in ("create", "write"):
+            self.assertFalse(frappe.has_permission("Journal Entry", ptype), f"Journal Entry:{ptype}")
+
+    def test_operator_has_intended_custom_doctype_actions(self):
+        for doctype in (
+            "Cardboard Supply",
+            "Cardboard Sale",
+            "Cardboard Supplier Payment",
+            "Quick Expense",
+        ):
+            for ptype in ("read", "create", "write", "submit"):
+                self.assertTrue(frappe.has_permission(doctype, ptype), f"{doctype}:{ptype}")
+        for ptype in ("read", "write"):
+            self.assertTrue(frappe.has_permission("Supplier", ptype), f"Supplier:{ptype}")
+        self.assertTrue(frappe.has_permission("Cardboard Dashboard Settings", "read"))
+        self.assertTrue(frappe.has_permission("Cardboard Dashboard Settings", "write"))
+
+    def test_setup_permission_convergence_is_repeatable(self):
+        from cardboard_management.setup import _ensure_cardboard_operator_permissions
+
+        _ensure_cardboard_operator_permissions()
+        first = frappe.get_all(
+            "Custom DocPerm",
+            filters={"role": OPERATOR_ROLE},
+            fields=["parent", "read", "write", "create", "submit", "cancel", "report"],
+            order_by="parent asc",
+        )
+        _ensure_cardboard_operator_permissions()
+        second = frappe.get_all(
+            "Custom DocPerm",
+            filters={"role": OPERATOR_ROLE},
+            fields=["parent", "read", "write", "create", "submit", "cancel", "report"],
+            order_by="parent asc",
+        )
+        self.assertEqual(first, second)
+        for row in second:
+            self.assertEqual(
+                frappe.db.count("Custom DocPerm", {"parent": row.parent, "role": OPERATOR_ROLE, "permlevel": 0}),
+                1,
+            )
+        self.assertEqual(frappe.db.count("Custom Role", {"report": "Stock Ledger"}), 0)
+
+    def test_administrator_remains_unrestricted(self):
+        frappe.set_user("Administrator")
+        for doctype in ("Stock Entry", "Payment Entry", "Journal Entry", "Sales Invoice"):
+            self.assertTrue(frappe.has_permission(doctype, "read"), doctype)
+            self.assertTrue(frappe.has_permission(doctype, "create"), doctype)
+            self.assertTrue(frappe.has_permission(doctype, "write"), doctype)
+        frappe.set_user(self.operator)
 
     def test_administrator_default_workspace_remains_unset(self):
         self.assertFalse(frappe.db.get_value("User", "Administrator", "default_workspace"))

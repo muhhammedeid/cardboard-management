@@ -37,9 +37,12 @@ class TestOperatorAccessSource(unittest.TestCase):
                 self.assertIn(f'"{permission}"', source)
         for report in ("Stock Balance", "Accounts Payable", "Purchase Register"):
             self.assertIn(report, source)
-        self.assertIn('update_permission_property(doctype, OPERATOR_ROLE, 0, permission, 1', source)
-        self.assertNotIn('"delete"', source)
-        self.assertNotIn('"cancel"', source)
+        self.assertIn('OPERATOR_PERMISSION_FIELDS', source)
+        self.assertIn('1 if permission in permissions else 0', source)
+        self.assertIn('filters={"parent": doctype, "role": OPERATOR_ROLE, "permlevel": 0, "if_owner": 0}', source)
+        self.assertIn('"Stock Ledger Entry": {"read", "report"}', source)
+        self.assertNotIn('"delete": 1', source)
+        self.assertNotIn('"cancel": 1', source)
 
     def test_module_profile_retains_only_operational_presentation_modules(self):
         profile = PROFILE.read_text(encoding="utf-8")

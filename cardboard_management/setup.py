@@ -38,6 +38,21 @@ OPERATOR_PERMISSIONS = {
 	"Purchase Invoice": {"read", "report"},
 }
 OPERATOR_REPORTS = ("Stock Balance", "Accounts Payable", "Purchase Register")
+OPERATOR_PERMISSION_FIELDS = (
+	"read",
+	"write",
+	"create",
+	"submit",
+	"cancel",
+	"amend",
+	"report",
+	"export",
+	"import",
+	"share",
+	"print",
+	"email",
+	"if_owner",
+)
 
 
 def merge_reference_type_options(*option_sources):
@@ -140,14 +155,26 @@ def _ensure_journal_entry_account_reference_type():
 
 
 def _ensure_cardboard_operator_permissions():
-	"""Create only the app-owned, minimum permission rows for operational routes."""
+	"""Converge app-owned operator rows to the exact least-privilege policy."""
 	from frappe.permissions import add_permission, update_permission_property
 
 	for doctype, permissions in OPERATOR_PERMISSIONS.items():
-		if not frappe.db.exists("Custom DocPerm", {"parent": doctype, "role": OPERATOR_ROLE, "permlevel": 0}):
+		rows = frappe.get_all(
+			"Custom DocPerm",
+			filters={"parent": doctype, "role": OPERATOR_ROLE, "permlevel": 0, "if_owner": 0},
+			pluck="name",
+		)
+		if not rows:
 			add_permission(doctype, OPERATOR_ROLE)
-		for permission in permissions:
-			update_permission_property(doctype, OPERATOR_ROLE, 0, permission, 1, validate=False)
+		for permission in OPERATOR_PERMISSION_FIELDS:
+			update_permission_property(
+				doctype,
+				OPERATOR_ROLE,
+				0,
+				permission,
+				1 if permission in permissions else 0,
+				validate=False,
+			)
 
 	for report in OPERATOR_REPORTS:
 		custom_role_name = frappe.db.get_value("Custom Role", {"report": report}, "name")
