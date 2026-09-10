@@ -101,6 +101,29 @@ class TestInventoryOperationalSource(unittest.TestCase):
         self.assertIn("get_inventory_overview", source)
         self.assertNotIn("Stock Ledger", source)
 
+    def test_inventory_page_has_operational_dashboard_sections_and_actions(self):
+        source = (PAGE / "inventory_operational_view.js").read_text(encoding="utf-8")
+        for marker in (
+            "cm-inventory-shell",
+            "cm-inventory-header",
+            "cm-inventory-header-actions",
+            "cm-inventory-filter-toolbar",
+            "cm-inventory-context",
+            "cm-inventory-date-control",
+            "cm-inventory-page-refresh",
+            "cm-inventory-details-action",
+            "cm-inventory-stock-heading",
+            "cm-inventory-stock-context",
+            "cm-inventory-section-heading",
+            "cm-inventory-item-movement",
+            "cm-inventory-inbound",
+            "cm-inventory-outbound",
+            "cm-inventory-activity-actions",
+            "رصيد المخزون في نهاية يوم",
+            "حركة يوم",
+        ):
+            self.assertIn(marker, source)
+
     def test_inventory_page_has_compact_context_cards_and_bidi_safe_values(self):
         source = (PAGE / "inventory_operational_view.js").read_text(encoding="utf-8")
         css = (APP / "public" / "css" / "cardboard_management.css").read_text(encoding="utf-8")
@@ -125,6 +148,29 @@ class TestInventoryOperationalSource(unittest.TestCase):
             "unicode-bidi: isolate",
         ):
             self.assertIn(marker, css)
+
+    def test_inventory_page_has_polished_empty_states_and_datepicker_contract(self):
+        source = (PAGE / "inventory_operational_view.js").read_text(encoding="utf-8")
+        css = (APP / "public" / "css" / "cardboard_management.css").read_text(encoding="utf-8")
+        for marker in (
+            "لا يوجد مخزون متاح في هذا التاريخ.",
+            "لا توجد حركات مسجلة في هذا اليوم.",
+            "لا توجد توريدات في هذا اليوم.",
+            "لا توجد عمليات بيع في هذا اليوم.",
+            "autoClose: true",
+            "todayButton: true",
+            "maxDate:",
+        ):
+            self.assertIn(marker, source)
+        self.assertIn(".cm-inventory-empty-state", css)
+        self.assertIn(".datepicker", css)
+
+    def test_inventory_page_uses_supported_v15_page_title_api(self):
+        source = (PAGE / "inventory_operational_view.js").read_text(encoding="utf-8")
+        self.assertIn("set_title_sub", source)
+        self.assertNotIn("set_subtitle", source)
+        for supported_call in ("set_primary_action", "add_action_item", "page.main.html"):
+            self.assertIn(supported_call, source)
 
     def test_workspace_inventory_enters_operational_page_and_keeps_stock_balance_secondary(self):
         workspace = json.loads(WORKSPACE.read_text(encoding="utf-8"))
