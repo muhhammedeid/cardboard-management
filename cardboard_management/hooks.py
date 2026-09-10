@@ -24,5 +24,11 @@ doc_events = {
 }
 
 # App-owned Desk presentation assets (route-scoped in JavaScript/CSS).
-app_include_css = ["/assets/cardboard_management/css/cardboard_management.css"]
-app_include_js = ["/assets/cardboard_management/js/cardboard_management.js"]
+app_include_css = [
+    "/assets/cardboard_management/css/cardboard_management.css",
+    "/assets/cardboard_management/css/cardboard_ui.css",
+]
+app_include_js = [
+    "/assets/cardboard_management/js/cardboard_management.js",
+    "/assets/cardboard_management/js/cardboard_ui.js",
+]

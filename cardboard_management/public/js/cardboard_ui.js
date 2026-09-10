@@ -1,0 +1,51 @@
+(function () {
+	"use strict";
+
+	const NAVIGATION = [
+		["الرئيسية", "home", "Workspaces/Cardboard Management"], ["التوريدات", "supply", "List/Cardboard Supply"],
+		["المبيعات", "sale", "List/Cardboard Sale"], ["الموردون", "supplier", "List/Supplier"],
+		["المدفوعات", "payment", "List/Cardboard Supplier Payment"], ["المصروفات", "expense", "List/Quick Expense"],
+		["المخزون", "inventory", "Page/inventory-operational-view"], ["التقارير", "report", "query-report/Stock Balance"],
+	];
+
+	function escapeHtml(value) { return window.frappe?.utils?.escape_html ? window.frappe.utils.escape_html(String(value ?? "")) : String(value ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c])); }
+	function ltr(value, className = "cm-number") { return `<bdi dir="ltr" class="${className}">${escapeHtml(value)}</bdi>`; }
+	function format(value, options) { return window.frappe?.format ? window.frappe.format(value, options) : String(value ?? "—"); }
+	function formatCurrency(value, currency) { return ltr(format(value, { fieldtype: "Currency", options: currency }), "cm-number cm-currency"); }
+	function formatQuantity(value, uom) { return ltr(`${format(value, { fieldtype: "Float" })} ${uom || ""}`.trim(), "cm-number cm-quantity"); }
+	function formatCode(value) { return ltr(value, "cm-code"); }
+	function icon(name) { return `<span class="cm-nav-icon" aria-hidden="true">${escapeHtml(name).slice(0, 1).toUpperCase()}</span>`; }
+	function navItem([label, name, route], active) { return `<li><a class="cm-nav-item" href="#${route}" data-cm-route="${escapeHtml(route)}"${active === name ? ' aria-current="page"' : ""}>${icon(name)}<span class="cm-nav-item__label">${escapeHtml(label)}</span></a></li>`; }
+
+	function mountAppShell(root, options = {}) {
+		if (!root) return null;
+		const active = options.active || "home";
+		root.classList.add("cm-app");
+		root.setAttribute("dir", "rtl");
+		root.innerHTML = `<div class="cm-app-shell"><aside class="cm-nav-rail" aria-label="التنقل الرئيسي"><div class="cm-brand"><span class="cm-brand__mark" aria-hidden="true">ك</span><span class="cm-brand__copy"><span class="cm-brand__title">إدارة الكرتون</span><span class="cm-brand__sub">CARDBOARD OPS</span></span></div><ul class="cm-nav-list">${NAVIGATION.map((item) => navItem(item, active)).join("")}</ul><div class="cm-nav-spacer"></div><ul class="cm-nav-list"><li><a class="cm-nav-item" href="#Form/Cardboard Dashboard Settings">${icon("settings")}<span class="cm-nav-item__label">الإعدادات</span></a></li></ul><div class="cm-nav-footer"><span class="cm-connection-dot"></span>النظام متصل</div></aside><main class="cm-app-main"><header class="cm-topbar"><div class="cm-topbar__start"><button class="cm-icon-button cm-topbar__menu" type="button" aria-label="فتح القائمة" data-cm-open-drawer>☰</button><strong class="cm-topbar__title">${escapeHtml(options.topbarTitle || "إدارة الكرتون")}</strong></div><div class="cm-topbar__end"><span class="cm-context-chip" data-cm-context hidden></span><button class="cm-button cm-button--primary" type="button" data-cm-quick-action>إجراء جديد</button><button class="cm-icon-button" type="button" aria-label="الحساب">◉</button></div></header><section class="cm-page-frame" data-cm-page-frame></section></main></div>`;
+		root.querySelectorAll("[data-cm-route]").forEach((link) => link.addEventListener("click", (event) => { event.preventDefault(); options.onNavigate?.(link.dataset.cmRoute); }));
+		root.querySelector("[data-cm-quick-action]")?.addEventListener("click", () => createQuickAction(root, options));
+		root.querySelector("[data-cm-open-drawer]")?.addEventListener("click", () => createDrawer(root, { title: "التنقل", body: `<ul class="cm-nav-list">${NAVIGATION.map((item) => navItem(item, active)).join("")}</ul>` }));
+		return root.querySelector("[data-cm-page-frame]");
+	}
+
+	function createPageFrame(frame, options = {}) {
+		if (!frame) return null;
+		const crumb = options.breadcrumb?.length ? `<nav class="cm-breadcrumb" aria-label="مسار الصفحة">${options.breadcrumb.map(escapeHtml).join(" / ")}</nav>` : "";
+		const context = options.context ? `<span class="cm-context-chip">${escapeHtml(options.context)}</span>` : "";
+		frame.innerHTML = `${crumb}<header class="cm-page-header"><div class="cm-page-header__copy"><h1 class="cm-page-title">${escapeHtml(options.title || "")}</h1>${options.subtitle ? `<p class="cm-page-subtitle">${escapeHtml(options.subtitle)}</p>` : ""}${context}</div><div class="cm-page-actions">${options.actions || ""}</div></header><div data-cm-page-body></div>`;
+		return frame.querySelector("[data-cm-page-body]");
+	}
+
+	function createQuickAction(root, options = {}) {
+		const existing = root.querySelector("[data-cm-quick-overlay]"); if (existing) return existing.remove();
+		const overlay = document.createElement("div"); overlay.className = "cm-overlay"; overlay.dataset.cmQuickOverlay = "true";
+		overlay.innerHTML = `<section class="cm-dialog" role="dialog" aria-modal="true" aria-labelledby="cm-quick-title"><h2 id="cm-quick-title" class="cm-page-title">إجراء جديد</h2><p class="cm-page-subtitle">اختر العملية التي تريد بدءها.</p><div class="cm-page-actions" style="margin-top:1rem"><button class="cm-button cm-button--primary" data-cm-action="supply">توريدة جديدة</button><button class="cm-button cm-button--secondary" data-cm-action="sale">بيع جديد</button><button class="cm-button cm-button--secondary" data-cm-action="payment">دفعة مورد</button><button class="cm-button cm-button--secondary" data-cm-action="expense">مصروف جديد</button></div><div class="cm-dialog__actions"><button class="cm-button cm-button--ghost" data-cm-close>إغلاق</button></div></section>`;
+		root.append(overlay); const close = () => overlay.remove(); overlay.addEventListener("click", (event) => { if (event.target === overlay || event.target.closest("[data-cm-close]")) close(); const action = event.target.closest("[data-cm-action]")?.dataset.cmAction; if (action) { options.onQuickAction?.(action); close(); } }); overlay.querySelector("button")?.focus();
+		return overlay;
+	}
+	function createDialog(root, options = {}) { const overlay = document.createElement("div"); overlay.className = "cm-overlay"; overlay.innerHTML = `<section class="cm-dialog" role="dialog" aria-modal="true"><h2 class="cm-page-title">${escapeHtml(options.title || "تأكيد")}</h2><p class="cm-page-subtitle">${escapeHtml(options.message || "")}</p><div class="cm-dialog__actions"><button class="cm-button cm-button--primary" data-cm-confirm>${escapeHtml(options.confirmLabel || "تأكيد")}</button><button class="cm-button cm-button--ghost" data-cm-close>إلغاء</button></div></section>`; root.append(overlay); overlay.addEventListener("click", (event) => { if (event.target === overlay || event.target.closest("[data-cm-close]")) { options.onClose?.(); overlay.remove(); } if (event.target.closest("[data-cm-confirm]")) { options.onConfirm?.(); overlay.remove(); } }); return overlay; }
+	function createDrawer(root, options = {}) { const overlay = document.createElement("div"); overlay.className = "cm-overlay"; overlay.innerHTML = `<aside class="cm-drawer" role="dialog" aria-modal="true"><div class="cm-page-header"><h2 class="cm-page-title">${escapeHtml(options.title || "")}</h2><button class="cm-icon-button" data-cm-close aria-label="إغلاق">×</button></div>${options.body || ""}</aside>`; root.append(overlay); overlay.addEventListener("click", (event) => { if (event.target === overlay || event.target.closest("[data-cm-close]")) overlay.remove(); }); return overlay; }
+
+	window.CardboardManagementUI = Object.freeze({ mountAppShell, createPageFrame, createQuickAction, createDialog, createDrawer, formatCurrency, formatQuantity, formatCode, ltr });
+})();
