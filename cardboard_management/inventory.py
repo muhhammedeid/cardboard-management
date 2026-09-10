@@ -49,6 +49,7 @@ def get_inventory_context():
         warehouse=warehouse.name,
         warehouse_name=warehouse.warehouse_name or warehouse.name,
         cardboard_item_group=settings.cardboard_item_group,
+        item_groups=item_groups,
         currency=frappe.get_cached_value("Company", settings.company, "default_currency"),
         items=items,
     )
@@ -70,6 +71,8 @@ def _sum_activity(doctype, fieldname, company, warehouse, item_groups, selected_
     ]
     if item_code:
         conditions.append(activity.item == item_code)
+    if doctype == "Cardboard Sale":
+        conditions.append(activity.company == company)
     query = (
         frappe.qb.from_(activity)
         .inner_join(item)

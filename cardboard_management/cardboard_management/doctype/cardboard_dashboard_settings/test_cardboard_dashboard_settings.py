@@ -2,6 +2,7 @@ from datetime import date
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
+from frappe.utils.nestedset import get_descendants_of
 
 from cardboard_management import dashboard as dashboard_service
 from cardboard_management.dashboard import get_chart_data, get_metric_value
@@ -20,8 +21,16 @@ class TestCardboardDashboardMetrics(FrappeTestCase):
 		settings = frappe.get_single("Cardboard Dashboard Settings")
 		self.company = settings.company
 		self.item_group = settings.cardboard_item_group
-		self.warehouse = frappe.db.get_value(
-			"Warehouse", {"company": self.company, "is_group": 0, "disabled": 0}, "name"
+		self.warehouse = settings.default_warehouse
+		self.item = frappe.db.get_value(
+			"Item",
+			{
+				"item_group": ["in", [self.item_group, *get_descendants_of("Item Group", self.item_group)]],
+				"is_stock_item": 1,
+				"disabled": 0,
+				"stock_uom": "Kg",
+			},
+			"name",
 		)
 		other_company = frappe.db.get_value("Company", {"name": ["!=", self.company]}, "name")
 		self.other_warehouse = frappe.db.get_value(
@@ -31,6 +40,7 @@ class TestCardboardDashboardMetrics(FrappeTestCase):
 		self.assertTrue(self.company)
 		self.assertTrue(self.item_group)
 		self.assertTrue(self.warehouse)
+		self.assertTrue(self.item)
 		self.assertTrue(self.other_warehouse)
 
 	def tearDown(self):
@@ -51,7 +61,7 @@ class TestCardboardDashboardMetrics(FrappeTestCase):
 			frappe.db.delete("Item", {"name": ["in", self.item_names]})
 		super().tearDown()
 
-	def insert_supply(self, posting_date, weight, amount, docstatus=1, warehouse=None, item="_Test Item", supplier="_Test Supplier"):
+	def insert_supply(self, posting_date, weight, amount, docstatus=1, warehouse=None, item=None, supplier="_Test Supplier"):
 		name = f"CM-DASH-{frappe.generate_hash(length=10)}"
 		frappe.db.sql(
 			"""insert into `tabCardboard Supply`
@@ -65,7 +75,7 @@ class TestCardboardDashboardMetrics(FrappeTestCase):
 				docstatus,
 				posting_date,
 				supplier,
-				item,
+				item or self.item,
 				warehouse or self.warehouse,
 				weight,
 				weight,
@@ -126,13 +136,26 @@ class TestCardboardDashboardMetrics(FrappeTestCase):
 		invoice = f"CM-DASH-PI-{frappe.generate_hash(length=8)}"
 		payment = f"CM-DASH-PE-{frappe.generate_hash(length=8)}"
 		reference = f"CM-DASH-PER-{frappe.generate_hash(length=8)}"
+		cardboard_supply = None
+		if is_cardboard_purchase:
+			warehouse = self.warehouse
+			if company != self.company:
+				warehouse = frappe.db.get_value(
+					"Warehouse", {"company": company, "is_group": 0, "disabled": 0}, "name"
+				)
+			cardboard_supply = self.insert_supply(
+				posting_date,
+				allocated_amount,
+				allocated_amount,
+				warehouse=warehouse,
+			)
 		frappe.db.sql(
 			"""insert into `tabPurchase Invoice`
 				(name, creation, modified, modified_by, owner, docstatus,
 				 posting_date, company, supplier, custom_cardboard_supply)
 			values (%s, now(), now(), 'Administrator', 'Administrator', 1,
 				%s, %s, '_Test Supplier', %s)""",
-			(invoice, posting_date, company, invoice if is_cardboard_purchase else None),
+			(invoice, posting_date, company, cardboard_supply),
 		)
 		frappe.db.sql(
 			"""insert into `tabPayment Entry`
@@ -157,6 +180,27 @@ class TestCardboardDashboardMetrics(FrappeTestCase):
 		self.payment_entry_names.append(payment)
 
 	def insert_payment_ledger_amount(self, amount, company=None, party="_Test Supplier", delinked=0):
+		company = company or self.company
+		warehouse = self.warehouse
+		if company != self.company:
+			warehouse = frappe.db.get_value(
+				"Warehouse", {"company": company, "is_group": 0, "disabled": 0}, "name"
+			)
+		invoice = f"CM-DASH-PLE-PI-{frappe.generate_hash(length=8)}"
+		supply = self.insert_supply(
+			date(2026, 8, 15),
+			abs(amount),
+			abs(amount),
+			warehouse=warehouse,
+		)
+		frappe.db.sql(
+			"""insert into `tabPurchase Invoice`
+				(name, creation, modified, modified_by, owner, docstatus,
+				 posting_date, company, supplier, custom_cardboard_supply)
+			values (%s, now(), now(), 'Administrator', 'Administrator', 1,
+				'2026-08-15', %s, %s, %s)""",
+			(invoice, company, party, supply),
+		)
 		name = f"CM-DASH-PLE-{frappe.generate_hash(length=8)}"
 		frappe.db.sql(
 			"""insert into `tabPayment Ledger Entry`
@@ -169,7 +213,7 @@ class TestCardboardDashboardMetrics(FrappeTestCase):
 				'2026-08-15', %s, 'Payable', 'Supplier', %s,
 				'_Test Payable', 'Purchase Invoice', %s, 'Purchase Invoice',
 				%s, %s, %s, 'EGP', %s)""",
-			(name, company or self.company, party, name, name, amount, amount, delinked),
+			(name, company, party, invoice, invoice, amount, amount, delinked),
 		)
 		self.payment_ledger_names.append(name)
 
