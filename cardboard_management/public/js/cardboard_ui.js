@@ -1,12 +1,17 @@
 (function () {
 	"use strict";
 
-	const NAVIGATION = [
-		["الرئيسية", "home", "Workspaces/Cardboard Management"], ["التوريدات", "supply", "List/Cardboard Supply"],
-		["المبيعات", "sale", "List/Cardboard Sale"], ["الموردون", "supplier", "List/Supplier"],
-		["المدفوعات", "payment", "List/Cardboard Supplier Payment"], ["المصروفات", "expense", "List/Quick Expense"],
-		["المخزون", "inventory", "Page/inventory-operational-view"], ["التقارير", "report", "query-report/Stock Balance"],
-	];
+	const NAVIGATION = Object.freeze([
+		{ label: "الرئيسية", name: "home", route: "Workspaces/Cardboard Management", group: "primary" },
+		{ label: "التوريدات", name: "supply", route: "List/Cardboard Supply", group: "primary" },
+		{ label: "المبيعات", name: "sale", route: "List/Cardboard Sale", group: "primary" },
+		{ label: "الموردون", name: "supplier", route: "List/Supplier", group: "primary" },
+		{ label: "المدفوعات", name: "payment", route: "List/Cardboard Supplier Payment", group: "primary" },
+		{ label: "المصروفات", name: "expense", route: "List/Quick Expense", group: "primary" },
+		{ label: "المخزون", name: "inventory", route: "Page/inventory-operational-view", group: "primary" },
+		{ label: "التقارير", name: "report", route: "query-report/Stock Balance", group: "primary" },
+		{ label: "الإعدادات", name: "settings", route: "Form/Cardboard Dashboard Settings", group: "secondary" },
+	]);
 	const MALFORMED_EGP_SYMBOL = "£ or ج.م";
 
 	function escapeHtml(value) {
@@ -86,8 +91,20 @@
 		return `<span class="cm-nav-icon" aria-hidden="true">${escapeHtml(name).slice(0, 1).toUpperCase()}</span>`;
 	}
 
-	function navItem([label, name, route], active) {
-		return `<li><a class="cm-nav-item" href="#${route}" data-cm-route="${escapeHtml(route)}"${active === name ? ' aria-current="page"' : ""}>${icon(name)}<span class="cm-nav-item__label">${escapeHtml(label)}</span></a></li>`;
+	function navItem(item, active) {
+		return `<li><a class="cm-nav-item" href="#${item.route}" data-cm-route="${escapeHtml(item.route)}" data-cm-nav-name="${escapeHtml(item.name)}"${active === item.name ? ' aria-current="page"' : ""}>${icon(item.name)}<span class="cm-nav-item__label">${escapeHtml(item.label)}</span></a></li>`;
+	}
+
+	function renderNavigation(active) {
+		return NAVIGATION.reduce((groups, item) => {
+			(groups[item.group] ||= []).push(navItem(item, active));
+			return groups;
+		}, { primary: [], secondary: [] });
+	}
+
+	function navigationMarkup(active) {
+		const groups = renderNavigation(active);
+		return `<ul class="cm-nav-list" data-cm-nav-group="primary">${groups.primary.join("")}</ul><div class="cm-nav-spacer"></div><ul class="cm-nav-list" data-cm-nav-group="secondary">${groups.secondary.join("")}</ul>`;
 	}
 
 	function mountAppShell(root, options = {}) {
@@ -98,15 +115,15 @@
 			: `<span class="cm-context-chip" data-cm-context hidden></span>`;
 		root.classList.add("cm-app");
 		root.setAttribute("dir", "rtl");
-		root.innerHTML = `<div class="cm-app-shell"><aside class="cm-nav-rail" aria-label="التنقل الرئيسي"><div class="cm-brand"><span class="cm-brand__mark" aria-hidden="true">ك</span><span class="cm-brand__copy"><span class="cm-brand__title">إدارة الكرتون</span><span class="cm-brand__sub">CARDBOARD OPS</span></span></div><ul class="cm-nav-list">${NAVIGATION.map((item) => navItem(item, active)).join("")}</ul><div class="cm-nav-spacer"></div><ul class="cm-nav-list"><li><a class="cm-nav-item" href="#Form/Cardboard Dashboard Settings">${icon("settings")}<span class="cm-nav-item__label">الإعدادات</span></a></li></ul><div class="cm-nav-footer"><span class="cm-connection-dot"></span>النظام متصل</div></aside><main class="cm-app-main"><header class="cm-topbar"><div class="cm-topbar__start"><button class="cm-icon-button cm-topbar__menu" type="button" aria-label="فتح القائمة" data-cm-open-drawer>☰</button><strong class="cm-topbar__title">${escapeHtml(options.topbarTitle || "إدارة الكرتون")}</strong></div><div class="cm-topbar__end">${context}<button class="cm-button cm-button--primary" type="button" data-cm-quick-action>إجراء جديد</button><button class="cm-icon-button" type="button" aria-label="الحساب">◉</button></div></header><section class="cm-page-frame" data-cm-page-frame></section></main></div>`;
+		root.innerHTML = `<div class="cm-app-shell"><aside class="cm-nav-rail" aria-label="التنقل الرئيسي"><div class="cm-brand"><span class="cm-brand__mark" aria-hidden="true">ك</span><span class="cm-brand__copy"><span class="cm-brand__title">إدارة الكرتون</span><span class="cm-brand__sub">CARDBOARD OPS</span></span></div>${navigationMarkup(active)}<div class="cm-nav-footer"><span class="cm-connection-dot"></span>النظام متصل</div></aside><main class="cm-app-main"><header class="cm-topbar"><div class="cm-topbar__start"><button class="cm-icon-button cm-topbar__menu" type="button" aria-label="فتح القائمة" data-cm-open-navigation>☰</button><strong class="cm-topbar__title">${escapeHtml(options.topbarTitle || "إدارة الكرتون")}</strong></div><div class="cm-topbar__end">${context}<button class="cm-button cm-button--primary" type="button" data-cm-quick-action>إجراء جديد</button><button class="cm-icon-button" type="button" aria-label="الحساب">◉</button></div></header><section class="cm-page-frame" data-cm-page-frame></section></main></div>`;
 		root.querySelectorAll("[data-cm-route]").forEach((link) => link.addEventListener("click", (event) => {
 			event.preventDefault();
 			options.onNavigate?.(link.dataset.cmRoute);
 		}));
 		root.querySelector("[data-cm-quick-action]")?.addEventListener("click", () => createQuickAction(root, options));
-		root.querySelector("[data-cm-open-drawer]")?.addEventListener("click", () => createDrawer(root, {
-			title: "التنقل",
-			body: `<ul class="cm-nav-list">${NAVIGATION.map((item) => navItem(item, active)).join("")}</ul>`,
+		root.querySelector("[data-cm-open-navigation]")?.addEventListener("click", () => createNavigationDrawer(root, {
+			active,
+			onNavigate: options.onNavigate,
 		}));
 		return root.querySelector("[data-cm-page-frame]");
 	}
@@ -160,9 +177,41 @@
 		return overlay;
 	}
 
+	function createNavigationDrawer(root, options = {}) {
+		const existing = root.querySelector("[data-cm-navigation-overlay]");
+		if (existing) return existing;
+		const trigger = root.querySelector("[data-cm-open-navigation]");
+		const overlay = document.createElement("div");
+		overlay.className = "cm-overlay cm-overlay--navigation";
+		overlay.dataset.cmNavigationOverlay = "true";
+		overlay.innerHTML = `<aside class="cm-drawer cm-navigation-drawer" role="dialog" aria-modal="true" aria-labelledby="cm-navigation-title"><div class="cm-page-header"><h2 id="cm-navigation-title" class="cm-page-title">التنقل</h2><button class="cm-icon-button" data-cm-close aria-label="إغلاق">×</button></div><nav aria-label="التنقل الرئيسي">${navigationMarkup(options.active || "home")}</nav></aside>`;
+		root.append(overlay);
+		root.classList.add("cm-navigation-open");
+		const close = () => {
+			overlay.remove();
+			root.classList.remove("cm-navigation-open");
+			document.removeEventListener("keydown", onKeydown);
+			trigger?.focus();
+		};
+		const onKeydown = (event) => {
+			if (event.key === "Escape") close();
+		};
+		document.addEventListener("keydown", onKeydown);
+		overlay.addEventListener("click", (event) => {
+			if (event.target === overlay || event.target.closest("[data-cm-close]")) return close();
+			const link = event.target.closest("[data-cm-route]");
+			if (link) {
+				event.preventDefault();
+				options.onNavigate?.(link.dataset.cmRoute);
+				close();
+			}
+		});
+		overlay.querySelector("[data-cm-close]")?.focus();
+		return overlay;
+	}
 	function createDrawer(root, options = {}) {
 		const overlay = document.createElement("div");
-		overlay.className = "cm-overlay";
+		overlay.className = "cm-overlay cm-overlay--drawer";
 		overlay.innerHTML = `<aside class="cm-drawer" role="dialog" aria-modal="true"><div class="cm-page-header"><h2 class="cm-page-title">${escapeHtml(options.title || "")}</h2><button class="cm-icon-button" data-cm-close aria-label="إغلاق">×</button></div>${options.body || ""}</aside>`;
 		root.append(overlay);
 		overlay.addEventListener("click", (event) => {
@@ -172,8 +221,8 @@
 	}
 
 	window.CardboardManagementUI = Object.freeze({
-		mountAppShell, createPageFrame, createQuickAction, createDialog, createDrawer,
-		formatDisplayText, createBidiValue, renderBidiValue, formatCurrency, formatQuantity,
+		mountAppShell, createPageFrame, createQuickAction, createDialog, createDrawer, createNavigationDrawer,
+		navigationMarkup,		formatDisplayText, createBidiValue, renderBidiValue, formatCurrency, formatQuantity,
 		formatCode, ltr,
 	});
 })();

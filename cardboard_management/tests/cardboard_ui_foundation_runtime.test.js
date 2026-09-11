@@ -78,6 +78,13 @@ vm.runInNewContext(
 );
 
 const ui = sandbox.window.CardboardManagementUI;
+const navigation = ui.navigationMarkup("supply");
+assert.strictEqual((navigation.match(/data-cm-nav-name=/g) || []).length, 9);
+assert.strictEqual((navigation.match(/data-cm-nav-name="settings"/g) || []).length, 1);
+assert(navigation.includes('data-cm-nav-name="supply" aria-current="page"'));
+assert(navigation.includes('data-cm-nav-group="primary"'));
+assert(navigation.includes('data-cm-nav-group="secondary"'));
+
 const root = new FakeRoot();
 const currencySlot = root.addSlot('[data-cm-value="currency"]');
 const quantitySlot = root.addSlot('[data-cm-value="weight"]');

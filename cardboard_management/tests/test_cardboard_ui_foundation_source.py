@@ -120,9 +120,15 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
     def test_compact_density_contract_preserves_mobile_touch_targets(self):
         css = CSS.read_text(encoding="utf-8")
         for marker in (
-            '.cm-nav-item { min-height:40px',
+            'font-size: 14px; line-height: 1.45;',
+            '.cm-page-frame { max-width:1600px; margin:auto; padding:var(--cm-space-5)',
+            '.cm-page-title{margin:0;font-size:24px;line-height:32px',
+            '.cm-card{padding:var(--cm-space-4)}',
+            '.cm-kpi-card__value{font-size:32px;line-height:40px',
+            '.cm-data-table th,.cm-data-table td{padding:var(--cm-space-2) var(--cm-space-3)',
+            '.cm-nav-item { min-height:38px',
             '.cm-button,.cm-icon-button { border:1px solid transparent; cursor:pointer; border-radius:var(--cm-radius-control); min-height:36px',
-            '.cm-input,.cm-select,.cm-search-input,.cm-textarea { width:100%;min-height:36px',
+            '.cm-input,.cm-select,.cm-search-input,.cm-textarea { width:100%;min-height:38px',
             '.cm-status { display:inline-flex;align-items:center;gap:6px;width:max-content;padding:2px 8px',
             '.cm-empty-state,.cm-error-state,.cm-permission-state{min-height:0',
             '.cm-foundation-review { gap: 12px; }',
@@ -131,12 +137,13 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
             '.cm-foundation-review .cm-scale-status { justify-self:start; width:max-content; max-width:100%; padding:2px 8px',
             '@media (max-width:767px)',
             '.cm-button,.cm-icon-button{min-height:44px}',
+            '.cm-input,.cm-select,.cm-search-input{min-height:44px}',
         ):
             self.assertIn(marker, css)
 
         css = CSS.read_text(encoding="utf-8")
         for marker in (
-            '--cm-sidebar-width: 280px',
+            '--cm-sidebar-width: 256px',
             '--cm-sidebar-collapsed-width: 80px',
             '--cm-header-height: 64px',
             '--cm-breakpoint-tablet: 768px',
@@ -164,13 +171,45 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
         self.assertNotIn('${ui.formatQuantity', page)
         self.assertNotIn('${ui.formatCode', page)
 
+    def test_navigation_uses_one_canonical_source_and_right_drawer_contract(self):
+        css = CSS.read_text(encoding="utf-8")
+        js = JS.read_text(encoding="utf-8")
+        self.assertIn('const NAVIGATION = Object.freeze([', js)
+        self.assertIn('function renderNavigation(active)', js)
+        self.assertIn('function navigationMarkup(active)', js)
+        self.assertIn('createNavigationDrawer', js)
+        self.assertIn('data-cm-open-navigation', js)
+        self.assertNotIn('data-cm-open-drawer', js)
+        self.assertIn('data-cm-nav-group="primary"', js)
+        self.assertIn('data-cm-nav-group="secondary"', js)
+        self.assertIn('cm-overlay--navigation', js)
+        self.assertIn('cm-overlay--drawer,.cm-overlay--navigation', css)
+        self.assertIn('justify-content:flex-end', css)
+        self.assertIn('@media (min-width:768px){.cm-overlay--navigation{display:none!important}}', css)
+        self.assertIn('.cm-navigation-open .cm-nav-rail{display:none!important}', css)
+        self.assertIn('.cm-navigation-drawer{width:min(280px,100%);height:100%;overflow:auto}', css)
+
+    def test_density_lock_does_not_use_css_zoom_or_root_scale(self):
+        css = CSS.read_text(encoding="utf-8")
+        self.assertNotIn('zoom:', css)
+        self.assertNotIn('transform:scale(0.8)', css)
+        self.assertNotIn('transform: scale(0.8)', css)
+
+    def test_navigation_visibility_contract_is_explicit(self):
+        css = CSS.read_text(encoding="utf-8")
+        self.assertIn('@media (max-width:1023px) and (min-width:768px)', css)
+        self.assertIn('@media (max-width:767px)', css)
+        self.assertIn('.cm-nav-rail{display:none}', css)
+        self.assertIn('.cm-topbar__menu{display:inline-flex', css)
+        self.assertIn('.cm-navigation-drawer', css)
+
     def test_foundation_document_records_sources_and_forbidden_dependencies(self):
         document = DOC.read_text(encoding="utf-8")
         for marker in (
             'P04-W00', 'Industrial Tactile RTL', 'Noto Sans Arabic',
             'Tailwind CDN: forbidden', 'Material Symbols CDN: forbidden',
             'Numbers and codes', 'No frontend business calculations',
-            'Golden reference calibration', '280px', '80px', '64px',
+            'Golden reference calibration', '256px', '80px', '64px',
             'renderBidiValue',
         ):
             self.assertIn(marker, document)
