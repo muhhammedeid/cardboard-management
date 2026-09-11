@@ -23,7 +23,7 @@ frappe.pages["cardboard-ui-foundation"].on_page_load = function (wrapper) {
 		title: "أساس واجهة إدارة الكرتون",
 		subtitle: "مراجعة مكونات P04-W01 فقط؛ القيم أدناه أمثلة تنسيق وليست بيانات تشغيلية.",
 		context: "معاينة تطويرية",
-		actions: `<button class="cm-button cm-button--primary" data-demo-dialog>حوار التأكيد</button><button class="cm-button cm-button--secondary" data-demo-drawer>درج جانبي</button>`,
+		actions: `<button class="cm-button cm-button--primary" data-demo-dialog>حوار التأكيد</button>`,
 	});
 	body.classList.add("cm-foundation-review");
 	body.innerHTML = `<section class="cm-alert-panel"><strong>نطاق المعاينة:</strong> لا توجد اتصالات خلفية أو حسابات أعمال في هذه الصفحة.</section>
@@ -43,9 +43,5 @@ frappe.pages["cardboard-ui-foundation"].on_page_load = function (wrapper) {
 	page.main.find("[data-demo-dialog]").on("click", () => ui.createDialog(page.main[0], {
 		title: "تأكيد تجريبي",
 		message: "هذا نمط تأكيد قابل لإعادة الاستخدام ولا ينفذ عملية أعمال.",
-	}));
-	page.main.find("[data-demo-drawer]").on("click", () => ui.createDrawer(page.main[0], {
-		title: "درج تجريبي",
-		body: `<p class="cm-page-subtitle">نمط للمرشحات أو السياق، دون بيانات تشغيلية.</p>`,
 	}));
 };

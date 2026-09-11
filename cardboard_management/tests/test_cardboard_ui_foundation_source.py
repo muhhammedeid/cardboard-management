@@ -126,7 +126,7 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
             '.cm-card{padding:var(--cm-space-4)}',
             '.cm-kpi-card__value{font-size:32px;line-height:40px',
             '.cm-data-table th,.cm-data-table td{padding:var(--cm-space-2) var(--cm-space-3)',
-            '.cm-nav-item { min-height:38px',
+            '.cm-nav-item { min-height:var(--cm-density-nav-row-height)',
             '.cm-button,.cm-icon-button { border:1px solid transparent; cursor:pointer; border-radius:var(--cm-radius-control); min-height:36px',
             '.cm-input,.cm-select,.cm-search-input,.cm-textarea { width:100%;min-height:38px',
             '.cm-status { display:inline-flex;align-items:center;gap:6px;width:max-content;padding:2px 8px',
@@ -143,13 +143,13 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
 
         css = CSS.read_text(encoding="utf-8")
         for marker in (
-            '--cm-sidebar-width: 256px',
-            '--cm-sidebar-collapsed-width: 80px',
-            '--cm-header-height: 64px',
+            '--cm-density-nav-expanded-width: 232px',
+            '--cm-density-nav-collapsed-width: 60px',
+            '--cm-density-topbar-height: 52px',
             '--cm-breakpoint-tablet: 768px',
             'direction: ltr;',
             'border-left: 1px solid var(--cm-color-border);',
-            'grid-template-columns: minmax(0, 1fr) var(--cm-sidebar-width)',
+            'grid-template-columns:minmax(0,1fr) var(--cm-density-nav-expanded-width)',
             '.cm-foundation-review .cm-page-title { font-size: 18px',
             '.cm-foundation-review .cm-empty-state { min-height: 0',
             '.cm-foundation-review .cm-data-table th',
@@ -178,7 +178,8 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
         self.assertIn('function renderNavigation(active)', js)
         self.assertIn('function navigationMarkup(active)', js)
         self.assertIn('createNavigationDrawer', js)
-        self.assertIn('data-cm-open-navigation', js)
+        self.assertIn('data-cm-toggle-navigation', js)
+        self.assertNotIn('data-cm-open-navigation', js)
         self.assertNotIn('data-cm-open-drawer', js)
         self.assertIn('data-cm-nav-group="primary"', js)
         self.assertIn('data-cm-nav-group="secondary"', js)
@@ -186,7 +187,6 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
         self.assertIn('cm-overlay--drawer,.cm-overlay--navigation', css)
         self.assertIn('justify-content:flex-end', css)
         self.assertIn('@media (min-width:768px){.cm-overlay--navigation{display:none!important}}', css)
-        self.assertIn('.cm-navigation-open .cm-nav-rail{display:none!important}', css)
         self.assertIn('.cm-navigation-drawer{width:min(280px,100%);height:100%;overflow:auto}', css)
 
     def test_density_lock_does_not_use_css_zoom_or_root_scale(self):
@@ -195,6 +195,47 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
         self.assertNotIn('transform:scale(0.8)', css)
         self.assertNotIn('transform: scale(0.8)', css)
 
+    def test_w01r5_uses_compact_desktop_density_tokens(self):
+        css = CSS.read_text(encoding="utf-8")
+        for marker in (
+            '--cm-density-font-page-title:',
+            '--cm-density-font-section:',
+            '--cm-density-font-body:',
+            '--cm-density-topbar-height:',
+            '--cm-density-nav-expanded-width:',
+            '--cm-density-nav-collapsed-width:',
+            '--cm-density-nav-row-height:',
+            '--cm-density-control-height:',
+            '--cm-density-card-padding:',
+            '--cm-density-section-gap:',
+            '--cm-density-page-gutter:',
+            '--cm-density-table-cell-y:',
+            'grid-template-columns:minmax(0,1fr) var(--cm-density-nav-expanded-width)',
+            'grid-template-columns:minmax(0,1fr) var(--cm-density-nav-collapsed-width)',
+        ):
+            self.assertIn(marker, css)
+
+    def test_w01r5_navigation_is_one_stateful_shell_control(self):
+        css = CSS.read_text(encoding="utf-8")
+        js = JS.read_text(encoding="utf-8")
+        page = PAGE_JS.read_text(encoding="utf-8")
+        for marker in (
+            'data-cm-toggle-navigation',
+            'cm-navigation-collapsed',
+            'data-cm-navigation-state',
+            '.cm-app-shell.cm-navigation-collapsed',
+            '.cm-navigation-expanded',
+            '.cm-navigation-collapsed .cm-nav-rail',
+            '.cm-navigation-collapsed .cm-nav-item__label',
+            '@media (min-width:1024px)',
+            'cm-overlay--navigation',
+        ):
+            self.assertIn(marker, css + js)
+        self.assertNotIn('data-cm-open-navigation', js)
+        self.assertNotIn('.cm-navigation-open .cm-nav-rail{display:none!important}', css)
+        self.assertNotIn('createDrawer(page.main[0]', page)
+        self.assertNotIn('data-demo-drawer', page)
+
     def test_navigation_visibility_contract_is_explicit(self):
         css = CSS.read_text(encoding="utf-8")
         self.assertIn('@media (max-width:1023px) and (min-width:768px)', css)
@@ -202,6 +243,8 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
         self.assertIn('.cm-nav-rail{display:none}', css)
         self.assertIn('.cm-topbar__menu{display:inline-flex', css)
         self.assertIn('.cm-navigation-drawer', css)
+        self.assertIn('@media (min-width:1024px)', css)
+        self.assertIn('.cm-app-shell.cm-navigation-collapsed', css)
 
     def test_foundation_document_records_sources_and_forbidden_dependencies(self):
         document = DOC.read_text(encoding="utf-8")
@@ -209,8 +252,8 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
             'P04-W00', 'Industrial Tactile RTL', 'Noto Sans Arabic',
             'Tailwind CDN: forbidden', 'Material Symbols CDN: forbidden',
             'Numbers and codes', 'No frontend business calculations',
-            'Golden reference calibration', '256px', '80px', '64px',
-            'renderBidiValue',
+            'Golden reference calibration', '232px', '60px', '52px',
+            'renderBidiValue', 'compact desktop density layer',
         ):
             self.assertIn(marker, document)
         self.assertNotIn('264 px right rail', document)

@@ -39,7 +39,7 @@ The app root is `.cm-app[dir="rtl"]`. **No frontend business calculations** are 
 
 ## Golden reference calibration
 
-The implemented shell is calibrated to the approved Stitch proportions: `256px` desktop right rail, `80px` tablet rail, `64px` top bar, `20px` desktop gutters, `16px` mobile gutters, `768px` mobile breakpoint, and `1600px` maximum content width. Desktop dense controls use `34–38px` visual height and `38px` fields; mobile controls retain `44px` minimum touch targets. The review route uses `18/26px` section headings, `12/18px` supporting labels, `8–12px` internal gaps, `14–16px` cards, compact tables, `11px` status badges, and content-sized empty states. One frozen navigation configuration renders both the physical right rail and the right-side mobile drawer; desktop never displays the mobile navigation trigger or drawer.
+The implemented shell is calibrated to the approved Stitch proportions: `232px` expanded desktop right rail, `60px` collapsed desktop/tablet rail, `52px` top bar, `14px` desktop gutters, `16px` mobile gutters, `768px` mobile breakpoint, and `1600px` maximum content width. The compact desktop density layer exposes semantic tokens for typography, controls, cards, section gaps, and table cells. Desktop dense controls use `34px` visual height and `36px` fields; mobile controls retain `44px` minimum touch targets. The review route uses compact section headings, supporting labels, `8–12px` internal gaps, `12px` cards, compact tables, `11px` status badges, and content-sized empty states. One frozen navigation configuration renders the physical right rail in expanded/collapsed states and the right-side mobile drawer; the same menu control collapses/expands the rail on desktop/tablet and opens the drawer only on mobile.
 ## Shell and components
 
 `mountAppShell()` provides the right RTL rail, top bar, quick-action entry point, responsive navigation contract, and page-frame slot. `createPageFrame()` provides title, subtitle, breadcrumb, context chip, actions, and body slots. The component system includes button variants, inputs, calculated fields, KPI/summary/data/record cards, status badges, filters, table/card transformations, pagination, tabs, dialog/drawer patterns, empty/error/permission/loading states, and scale-state visual primitives.
@@ -59,7 +59,7 @@ All badges include text and a dot/shape treatment; color is never the only signa
 
 ## Responsive and accessibility baseline
 
-Desktop is `>=1024px`, tablet `768–1023px`, and mobile `<768px`. Desktop uses the 256 px right rail; tablet collapses it to an 80 px icon rail; mobile uses one right-side navigation drawer and mobile action bar. Tables are hidden in favor of record cards at mobile sizes. Focus states, persistent labels, 44 px mobile controls, dialog/drawer keyboard dismissal, semantic disabled/read-only states, and reduced-motion behavior are baseline requirements.
+Desktop is `>=1024px`, tablet `768–1023px`, and mobile `<768px`. Desktop uses the 232 px expanded right rail or 60 px collapsed icon rail; the main grid changes columns so content immediately reflows. Tablet defaults to the compact 60 px right rail and uses the same toggle for temporary expansion. Mobile hides the rail and uses one right-side navigation drawer and mobile action bar. Tables are hidden in favor of record cards at mobile sizes. Focus states, persistent labels, 44 px mobile controls, dialog/drawer keyboard dismissal, semantic disabled/read-only states, and reduced-motion behavior are baseline requirements.
 
 ## Forbidden patterns
 
