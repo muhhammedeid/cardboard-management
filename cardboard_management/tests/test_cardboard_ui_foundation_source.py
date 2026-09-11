@@ -117,7 +117,23 @@ class TestCardboardUiFoundationSource(unittest.TestCase):
             '.cm-foundation-review .cm-empty-state',
         ):
             self.assertIn(marker, css)
-    def test_golden_reference_calibration_is_explicit(self):
+    def test_compact_density_contract_preserves_mobile_touch_targets(self):
+        css = CSS.read_text(encoding="utf-8")
+        for marker in (
+            '.cm-nav-item { min-height:40px',
+            '.cm-button,.cm-icon-button { border:1px solid transparent; cursor:pointer; border-radius:var(--cm-radius-control); min-height:36px',
+            '.cm-input,.cm-select,.cm-search-input,.cm-textarea { width:100%;min-height:36px',
+            '.cm-status { display:inline-flex;align-items:center;gap:6px;width:max-content;padding:2px 8px',
+            '.cm-empty-state,.cm-error-state,.cm-permission-state{min-height:0',
+            '.cm-foundation-review { gap: 12px; }',
+            '.cm-foundation-review .cm-kpi-card { min-height: 0; padding: 14px; }',
+            '.cm-foundation-review .cm-data-table th,',
+            '.cm-foundation-review .cm-scale-status { justify-self:start; width:max-content; max-width:100%; padding:2px 8px',
+            '@media (max-width:767px)',
+            '.cm-button,.cm-icon-button{min-height:44px}',
+        ):
+            self.assertIn(marker, css)
+
         css = CSS.read_text(encoding="utf-8")
         for marker in (
             '--cm-sidebar-width: 280px',
