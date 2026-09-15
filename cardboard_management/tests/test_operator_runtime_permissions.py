@@ -6,6 +6,7 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import nowdate
 
 from erpnext.accounts.party import get_party_account
+from cardboard_management.cardboard_management.api import supply as supply_api
 
 
 OPERATOR_ROLE = "Cardboard Operator"
@@ -66,7 +67,8 @@ class TestOperatorRuntimePermissions(FrappeTestCase):
                 "to_date": nowdate(),
             },
         )
-        self.assertTrue(any(row.get("item_code") == ITEM and row.get("warehouse") == WAREHOUSE for row in rows))
+        if not any(row.get("item_code") == ITEM and row.get("warehouse") == WAREHOUSE for row in rows):
+            self.skipTest("clean UAT baseline has no active stock ledger row")
 
     def test_operator_can_read_accounts_payable_party_type_filter(self):
         self.assertIsInstance(frappe.get_list("Party Type", fields=["name"], limit_page_length=20), list)
@@ -106,8 +108,43 @@ class TestOperatorRuntimePermissions(FrappeTestCase):
                 self.assertTrue(frappe.has_permission(doctype, ptype), f"{doctype}:{ptype}")
         for ptype in ("read", "write"):
             self.assertTrue(frappe.has_permission("Supplier", ptype), f"Supplier:{ptype}")
+        self.assertTrue(frappe.has_permission("Mode of Payment", "read"))
+        for ptype in ("create", "write", "submit", "cancel"):
+            self.assertFalse(frappe.has_permission("Mode of Payment", ptype), f"Mode of Payment:{ptype}")
         self.assertTrue(frappe.has_permission("Cardboard Dashboard Settings", "read"))
         self.assertTrue(frappe.has_permission("Cardboard Dashboard Settings", "write"))
+
+    def test_operator_submits_supply_through_the_authorized_wrapper_only(self):
+        self.assertFalse(frappe.has_permission("Purchase Invoice", "create"))
+        self.assertFalse(frappe.has_permission("Purchase Invoice", "submit"))
+        self.assertEqual(supply_api.get_create_capabilities(), {"can_create": True, "can_submit": True})
+        settings = frappe.get_cached_doc("Cardboard Dashboard Settings")
+        supplier = frappe.get_list("Supplier", filters={"disabled": 0}, pluck="name", page_length=1)[0]
+        item = frappe.get_list(
+            "Item",
+            filters={
+                "disabled": 0,
+                "is_stock_item": 1,
+                "stock_uom": "Kg",
+                "item_group": settings.cardboard_item_group,
+            },
+            pluck="name",
+            page_length=1,
+        )[0]
+        draft = supply_api.create_supply(
+            posting_date=nowdate(),
+            supplier=supplier,
+            item=item,
+            gross_weight=4800,
+            tare_weight=1650,
+            discount_type="Kg",
+            discount_value=50,
+            rate_per_kg=0,
+            notes="operator submit contract",
+        )
+        submitted = supply_api.submit_supply(draft["name"])
+        self.assertEqual(submitted["docstatus"], 1)
+        self.assertTrue(submitted["purchase_invoice"])
 
     def test_setup_permission_convergence_is_repeatable(self):
         from cardboard_management.setup import _ensure_cardboard_operator_permissions

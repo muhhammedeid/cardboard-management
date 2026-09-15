@@ -804,15 +804,13 @@ class TestCardboardSupply(FrappeTestCase):
 		self.assertEqual(supply.payment_status, status)
 		self.assertEqual(supply.invoice_paid_amount, paid_amount)
 		self.assertEqual(supply.purchase_invoice_outstanding, outstanding_amount)
-		self.assertIn('data-ticket-field="invoice_total"', html)
 		self.assertIn('data-ticket-field="paid_amount"', html)
 		self.assertIn('data-ticket-field="outstanding_amount"', html)
-		self.assertIn(supply.get_formatted("invoice_total", currency=supply.ticket_currency), html)
-		self.assertIn(supply.get_formatted("invoice_paid_amount", currency=supply.ticket_currency), html)
-		self.assertIn(
-			supply.get_formatted("purchase_invoice_outstanding", currency=supply.ticket_currency), html
-		)
-		self.assertIn(status, html)
+		# The slip prints what is paid and what is left — and nothing else about the invoice.
+		self.assertIn(supply.ticket_money("invoice_paid_amount"), html)
+		self.assertIn(supply.ticket_money("purchase_invoice_outstanding"), html)
+		self.assertNotIn('data-ticket-field="invoice_total"', html)
+		self.assertNotIn("£ or", html)
 
 	def test_ticket_renders_all_discount_modes_with_business_weights(self):
 		cases = (
@@ -857,10 +855,11 @@ class TestCardboardSupply(FrappeTestCase):
 		self.assertEqual(supply.total_amount, 5525)
 		self.assertIn('dir="rtl"', html)
 		self.assertIn('@page { size: A5', html)
-		self.assertIn(supply.get_formatted("rate_per_kg", currency=supply.ticket_currency), html)
-		self.assertIn(supply.get_formatted("total_amount", currency=supply.ticket_currency), html)
+		self.assertIn(supply.ticket_money("rate_per_kg"), html)
+		self.assertIn(supply.ticket_money("total_amount"), html)
 		self.assertNotIn(f"{purchase_invoice.items[0].rate:.9f}", html)
-		self.assertIn(purchase_invoice.currency, html)
+		# The stored EGP symbol is the malformed "£ or ج.م": paper never shows it.
+		self.assertNotIn("£ or", html)
 		self.assertIn(company.company_name or company.name, html)
 		self.assertEqual(supply.ticket_item_name, frappe.db.get_value("Item", supply.item, "item_name"))
 		self.assertEqual(

@@ -6,7 +6,9 @@
  "field_order": [
   "company",
   "default_warehouse",
-  "cardboard_item_group"
+  "cardboard_item_group",
+  "default_supplier_group",
+  "default_mode_of_payment"
  ],
  "fields": [
   {
@@ -28,11 +30,24 @@
    "label": "Cardboard Item Group",
    "options": "Item Group",
    "reqd": 1
+  },
+  {
+   "fieldname": "default_supplier_group",
+   "fieldtype": "Link",
+   "label": "Default Supplier Group",
+   "options": "Supplier Group",
+   "reqd": 1
+  },
+  {
+   "fieldname": "default_mode_of_payment",
+   "fieldtype": "Link",
+   "label": "Default Mode of Payment",
+   "options": "Mode of Payment"
   }
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-09-09 15:00:00.000000",
+ "modified": "2026-09-12 12:30:00.000000",
  "modified_by": "Administrator",
  "module": "Cardboard Management",
  "name": "Cardboard Dashboard Settings",

@@ -202,14 +202,19 @@ class TestReportingReadModels(FrappeTestCase):
         self.assertTrue(any(row["account"] == expense_account and flt(row["amount"]) >= 23 for row in after["by_account"]))
 
     def test_inventory_movement_is_separate_and_item_filterable(self):
+        # The shared development site may contain operational stock movement and
+        # earlier class fixtures. Assert only this fixture's authoritative delta.
+        before = reporting.get_inventory_movement(
+            from_date=nowdate(), to_date=nowdate(), cardboard_item=self.item
+        )
         self._insert_supply("movement", quantity=8)
         self._insert_sale("movement", quantity=2)
         result = reporting.get_inventory_movement(
             from_date=nowdate(), to_date=nowdate(), cardboard_item=self.item
         )
-        self.assertEqual(flt(result["inbound_quantity"]), 8)
-        self.assertEqual(flt(result["outbound_quantity"]), 2)
-        self.assertEqual(flt(result["net_quantity"]), 6)
+        self.assertEqual(flt(result["inbound_quantity"]) - flt(before["inbound_quantity"]), 8)
+        self.assertEqual(flt(result["outbound_quantity"]) - flt(before["outbound_quantity"]), 2)
+        self.assertEqual(flt(result["net_quantity"]) - flt(before["net_quantity"]), 6)
         self.assertTrue(result["by_date"])
         self.assertTrue(result["by_item"])
         self.assertEqual(result["by_item"][0]["item"], self.item)

@@ -81,6 +81,9 @@ class CardboardSupply(Document):
 		self.ticket_item_name = self.item
 		self.ticket_supplier_name = self.supplier
 		self.ticket_weight_uom = "Kg"
+		self.ticket_prepared_by = None
+		self.ticket_company_phone = None
+		self.ticket_company_description = None
 
 		company = (
 			frappe.db.get_value("Warehouse", self.warehouse, "company") if self.warehouse else None
@@ -97,13 +100,15 @@ class CardboardSupply(Document):
 			company_details = frappe.db.get_value(
 				"Company",
 				company,
-				["name", "company_name", "company_logo", "default_currency"],
+				["name", "company_name", "company_logo", "default_currency", "phone_no", "company_description"],
 				as_dict=True,
 			)
 			if company_details:
 				self.ticket_company_name = company_details.company_name or company_details.name
 				self.ticket_company_logo = company_details.company_logo
 				self.ticket_currency = self.ticket_currency or company_details.default_currency
+				self.ticket_company_phone = company_details.phone_no
+				self.ticket_company_description = (company_details.company_description or "").strip() or None
 
 		if self.item:
 			item_details = frappe.db.get_value(
@@ -116,6 +121,23 @@ class CardboardSupply(Document):
 		if self.supplier:
 			supplier_name = frappe.db.get_value("Supplier", self.supplier, "supplier_name")
 			self.ticket_supplier_name = supplier_name or self.supplier
+
+		# The operator who recorded the weighing signs the printed ticket.
+		if self.owner:
+			self.ticket_prepared_by = frappe.db.get_value("User", self.owner, "full_name") or self.owner
+
+	#: The site's stored EGP symbol is the malformed "£ or ج.م", and Frappe prepends it to
+	#: every formatted amount; paper must read "ج.م 6.50", never the combined token.
+	MALFORMED_CURRENCY_PREFIXES = ("£ or ", "or £ ", "£or", "or£")
+
+	def ticket_money(self, fieldname, currency=None):
+		"""Formatted money for the printed ticket, with the stored symbol cleaned."""
+		text = self.get_formatted(fieldname, currency=currency or self.ticket_currency) or ""
+		for prefix in self.MALFORMED_CURRENCY_PREFIXES:
+			if text.startswith(prefix):
+				text = text[len(prefix) :]
+				break
+		return text.strip()
 
 	def get_display_payable_weight(self):
 		if self.payable_weight or flt(self.net_weight) <= 0:
@@ -229,8 +251,12 @@ class CardboardSupply(Document):
 
 		context = self._get_integration_context()
 		purchase_invoice = self._build_purchase_invoice(context)
-		purchase_invoice.insert()
+		# Supply submission is the app-owned, permission-checked operational boundary.
+		# The linked native document is never exposed as a direct Operator workflow.
+		purchase_invoice.flags.ignore_permissions = True
+		purchase_invoice.insert(ignore_permissions=True)
 		self._validate_purchase_invoice_mapping(purchase_invoice, context)
+		purchase_invoice.flags.ignore_permissions = True
 		purchase_invoice.submit()
 		self._validate_purchase_invoice_mapping(purchase_invoice, context)
 		self._set_purchase_invoice_link(purchase_invoice.name)
@@ -336,6 +362,7 @@ class CardboardSupply(Document):
 		context = self._get_integration_context()
 		self._validate_purchase_invoice_mapping(purchase_invoice, context)
 		if purchase_invoice.docstatus == 0:
+			purchase_invoice.flags.ignore_permissions = True
 			purchase_invoice.submit()
 		self._validate_purchase_invoice_mapping(purchase_invoice, context)
 		self._set_purchase_invoice_link(purchase_invoice.name)

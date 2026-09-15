@@ -175,3 +175,8 @@ Generated Stock Entry {0} must be submitted before cancelling,يجب اعتما�
 Generated Stock Entry {0} does not match the sale,القيد المخزني {0} المُنشأ لا يطابق عملية البيع,
 Generated Stock Entry {0} is cancelled; a duplicate will not be created,القيد المخزني {0} ملغي؛ لن يتم إنشاء نسخة مكررة,
 New Cardboard Sale,بيع جديد,
+To Date cannot be in the future,لا يمكن أن يكون تاريخ النهاية في المستقبل,
+From Date cannot be after To Date,لا يمكن أن يكون تاريخ البداية بعد تاريخ النهاية,
+Invalid reporting status: {0},حالة تقرير غير صحيحة: {0},
+Cardboard item is outside the configured reporting scope,نوع الكرتون خارج نطاق التقارير المُهيّأ,
+Supplier {0} already exists,المورد {0} موجود بالفعل,

@@ -10,6 +10,28 @@ class CardboardDashboardSettings(Document):
 		if not frappe.db.exists("Item Group", self.cardboard_item_group):
 			frappe.throw(_("Select a valid Cardboard Item Group"))
 		self.validate_default_warehouse()
+		self.validate_default_supplier_group()
+		self.validate_default_mode_of_payment()
+
+	def validate_default_mode_of_payment(self):
+		if not self.default_mode_of_payment:
+			return
+		from cardboard_management.cardboard_management.doctype.cardboard_supplier_payment.cardboard_supplier_payment import (
+			get_mapped_payment_account,
+		)
+
+		if not frappe.db.get_value("Mode of Payment", self.default_mode_of_payment, "enabled"):
+			frappe.throw(_("Default Mode of Payment must be enabled"))
+		get_mapped_payment_account(self.default_mode_of_payment, self.company)
+
+	def validate_default_supplier_group(self):
+		supplier_group = frappe.db.get_value(
+			"Supplier Group", self.default_supplier_group, ["name", "is_group"], as_dict=True
+		)
+		if not supplier_group:
+			frappe.throw(_("Select a valid Default Supplier Group"))
+		if supplier_group.is_group:
+			frappe.throw(_("Default Supplier Group must not be a group supplier group"))
 
 	def validate_default_warehouse(self):
 		if not self.default_warehouse:

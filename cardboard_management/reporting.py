@@ -4,13 +4,19 @@ from collections import defaultdict
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate, nowdate
+from frappe.utils import cint, flt, getdate, nowdate
 from frappe.utils.nestedset import get_descendants_of
 
 from cardboard_management.inventory import get_inventory_context
 
 
 STATUS_VALUES = {"submitted": 1, "draft": 0, "cancelled": 2}
+
+# A supplier statement used to return every entry, so one long-lived supplier could
+# produce an unbounded payload. Responses are windowed by default and always carry
+# `total`/`has_more` so a client pages instead of silently losing rows.
+STATEMENT_PAGE_SIZE = 200
+STATEMENT_MAX_PAGE_SIZE = 500
 
 
 def _require_reporting_access(*doctypes):
@@ -34,6 +40,20 @@ def _status(status=None):
     if value not in (*STATUS_VALUES, "all"):
         frappe.throw(_("Invalid reporting status: {0}").format(frappe.bold(status)))
     return value
+
+
+def _paginate(entries, page=1, page_size=None):
+    """Bound a timeline response and describe the window it returned."""
+    size = max(min(cint(page_size) or STATEMENT_PAGE_SIZE, STATEMENT_MAX_PAGE_SIZE), 1)
+    start = max(cint(page) or 1, 1)
+    total = len(entries)
+    offset = (start - 1) * size
+    return entries[offset : offset + size], {
+        "page": start,
+        "page_size": size,
+        "total": total,
+        "has_more": offset + size < total,
+    }
 
 
 def _context(from_date=None, to_date=None, cardboard_item=None, supplier=None, status=None, required_doctypes=None):
@@ -492,6 +512,9 @@ def get_supplier_summary(supplier, from_date=None, to_date=None):
         "supplier_payments": flt(sum(flt(row.paid_amount) for row in payment_rows)),
         "outstanding": current_outstanding,
         "outstanding_semantics": "current_erpnext_purchase_invoice_outstanding",
+        # Stated by the server so the client never has to hardcode the rule that
+        # drafts stay out of history and totals.
+        "submitted_only": True,
         "supply_history": [
             {"supply": row.name, "posting_date": str(row.posting_date), "item": row.item,
              "item_name": row.item_name or row.item, "payable_weight": flt(row.payable_weight),
@@ -507,9 +530,42 @@ def get_supplier_summary(supplier, from_date=None, to_date=None):
 
 
 @frappe.whitelist()
-def get_supplier_statement(supplier, from_date=None, to_date=None):
-    """Stable alias for the normalized supplier summary contract."""
-    return get_supplier_summary(supplier, from_date, to_date)
+def get_supplier_statement(supplier, from_date=None, to_date=None, page=1, page_size=None):
+    """Return an authoritative, mixed supplier transaction timeline (windowed).
+
+    `entries` is one window of the timeline; `total`/`has_more` describe the rest so
+    the caller can page instead of silently losing history.
+    """
+    summary = get_supplier_summary(supplier, from_date, to_date)
+    entries = [
+        {
+            "type": "supply",
+            "posting_date": row["posting_date"],
+            "name": row["supply"],
+            "label": row["item_name"],
+            "quantity": row["payable_weight"],
+            "amount": row["value"],
+        }
+        for row in summary["supply_history"]
+    ]
+    entries.extend(
+        {
+            "type": "payment",
+            "posting_date": row["posting_date"],
+            "name": row["payment"],
+            "label": row["mode_of_payment"],
+            "amount": row["amount"],
+            "mode_of_payment": row["mode_of_payment"],
+        }
+        for row in summary["payment_history"]
+    )
+    timeline = sorted(entries, key=lambda entry: (entry["posting_date"], entry["name"], entry["type"]), reverse=True)
+    window, pagination = _paginate(timeline, page, page_size)
+    return {
+        **summary,
+        "entries": window,
+        **pagination,
+    }
 
 
 @frappe.whitelist()
@@ -568,4 +624,162 @@ def get_inventory_movement(from_date=None, to_date=None, cardboard_item=None):
         "to_date": str(filters.to_date),
         "scope": _scope_payload(filters),
         **_inventory_movement_data(filters),
+    }
+
+
+@frappe.whitelist()
+def get_payables_summary(from_date=None, to_date=None):
+    """Scoped totals for the payments header band on a single day.
+
+    `paid_today` sums submitted supplier payments inside the date range (dates
+    default to that single day). `outstanding` is the authoritative current
+    ERPNext outstanding across the installation's cardboard purchase invoices,
+    independent of the requested day — it is a snapshot, not period activity.
+    """
+    day = getdate(to_date or from_date or nowdate())
+    filters = _context(
+        day,
+        day,
+        required_doctypes=("Cardboard Supply", "Cardboard Supplier Payment", "Supplier"),
+    )
+    groups = _placeholders(filters.item_groups)
+    payments = frappe.db.sql(
+        f"""select coalesce(sum(native_payment.paid_amount), 0) as amount,
+                count(distinct payment.name) as count
+            from `tabCardboard Supplier Payment` payment
+            inner join `tabPayment Entry` native_payment
+                on native_payment.name = payment.payment_entry
+                and native_payment.docstatus = 1
+                and native_payment.payment_type = 'Pay'
+                and native_payment.party_type = 'Supplier'
+            where payment.docstatus = 1
+                and payment.posting_date = %s
+                and payment.company = %s
+                and exists (
+                    select 1
+                    from `tabPayment Entry Reference` reference
+                    inner join `tabPurchase Invoice` invoice
+                        on invoice.name = reference.reference_name
+                        and reference.reference_doctype = 'Purchase Invoice'
+                        and invoice.docstatus = 1
+                        and invoice.company = %s
+                    inner join `tabCardboard Supply` supply
+                        on supply.name = invoice.custom_cardboard_supply
+                    inner join `tabWarehouse` warehouse on warehouse.name = supply.warehouse
+                    inner join `tabItem` item on item.name = supply.item
+                    where reference.parent = native_payment.name
+                        and reference.parenttype = 'Payment Entry'
+                        and supply.warehouse = %s
+                        and warehouse.company = %s
+                        and item.item_group in ({groups})
+                )""",
+        (day, filters.context.company, filters.context.company,
+         filters.context.warehouse, filters.context.company, *filters.item_groups),
+        as_dict=True,
+    )[0]
+    outstanding = frappe.db.sql(
+        f"""select coalesce(sum(invoice.outstanding_amount), 0) as amount
+            from `tabPurchase Invoice` invoice
+            inner join `tabCardboard Supply` supply
+                on supply.name = invoice.custom_cardboard_supply
+            inner join `tabWarehouse` warehouse on warehouse.name = supply.warehouse
+            inner join `tabItem` item on item.name = supply.item
+            where invoice.docstatus = 1
+                and invoice.company = %s
+                and supply.warehouse = %s
+                and warehouse.company = %s
+                and item.item_group in ({groups})""",
+        (filters.context.company, filters.context.warehouse,
+         filters.context.company, *filters.item_groups),
+        as_dict=True,
+    )[0]
+    return {
+        "date": str(day),
+        "scope": _scope_payload(filters),
+        "paid_today": {"count": int(payments.count or 0), "amount": flt(payments.amount)},
+        "outstanding": flt(outstanding.amount),
+    }
+
+
+@frappe.whitelist()
+def get_outstanding_report():
+    """Per-supplier full debt tracking over the installation's cardboard scope.
+
+    For each supplier with cardboard purchase invoices this returns the
+    authoritative current ERPNext outstanding plus lifetime totals from
+    submitted documents only, ordered by debt. Pure read model.
+    """
+    filters = _context(required_doctypes=("Cardboard Supply", "Cardboard Supplier Payment", "Supplier"))
+    groups = _placeholders(filters.item_groups)
+    rows = frappe.db.sql(
+        f"""select supplier.name, supplier.supplier_name,
+                coalesce(outstanding.outstanding, 0) as outstanding,
+                coalesce(ops.supply_value, 0) as supply_value,
+                coalesce(ops.supplied_weight, 0) as supplied_weight,
+                coalesce(ops.supply_count, 0) as supply_count,
+                coalesce(pays.paid_amount, 0) as paid_amount,
+                coalesce(pays.payment_count, 0) as payment_count
+            from `tabSupplier` supplier
+            left join (
+                select invoice.supplier, sum(invoice.outstanding_amount) as outstanding
+                from `tabPurchase Invoice` invoice
+                inner join `tabCardboard Supply` supply
+                    on supply.name = invoice.custom_cardboard_supply
+                inner join `tabWarehouse` warehouse on warehouse.name = supply.warehouse
+                inner join `tabItem` item on item.name = supply.item
+                where invoice.docstatus = 1
+                    and invoice.company = %s
+                    and supply.warehouse = %s
+                    and warehouse.company = %s
+                    and item.item_group in ({groups})
+                group by invoice.supplier
+            ) outstanding on outstanding.supplier = supplier.name
+            left join (
+                select supply.supplier,
+                    sum(supply.total_amount) as supply_value,
+                    sum(supply.payable_weight) as supplied_weight,
+                    count(supply.name) as supply_count
+                from `tabCardboard Supply` supply
+                inner join `tabWarehouse` warehouse on warehouse.name = supply.warehouse
+                inner join `tabItem` item on item.name = supply.item
+                where supply.docstatus = 1
+                    and supply.warehouse = %s
+                    and warehouse.company = %s
+                    and item.item_group in ({groups})
+                group by supply.supplier
+            ) ops on ops.supplier = supplier.name
+            left join (
+                select payment.supplier,
+                    sum(native_payment.paid_amount) as paid_amount,
+                    count(payment.name) as payment_count
+                from `tabCardboard Supplier Payment` payment
+                inner join `tabPayment Entry` native_payment
+                    on native_payment.name = payment.payment_entry
+                    and native_payment.docstatus = 1
+                    and native_payment.payment_type = 'Pay'
+                    and native_payment.party_type = 'Supplier'
+                where payment.docstatus = 1
+                    and payment.company = %s
+                group by payment.supplier
+            ) pays on pays.supplier = supplier.name
+            where supplier.disabled = 0
+                and (outstanding.outstanding > 0 or ops.supply_value > 0 or pays.paid_amount > 0)
+            order by outstanding desc, supply_value desc, supplier.supplier_name""",
+        (filters.context.company, filters.context.warehouse, filters.context.company,
+         *filters.item_groups,
+         filters.context.warehouse, filters.context.company, *filters.item_groups,
+         filters.context.company),
+        as_dict=True,
+    )
+    return {
+        "scope": _scope_payload(filters),
+        "submitted_only": True,
+        "total_outstanding": flt(sum(flt(row.outstanding) for row in rows)),
+        "suppliers": [
+            {"supplier": row.name, "supplier_name": row.supplier_name or row.name,
+             "outstanding": flt(row.outstanding), "supply_value": flt(row.supply_value),
+             "supplied_weight": flt(row.supplied_weight), "supply_count": int(row.supply_count),
+             "paid_amount": flt(row.paid_amount), "payment_count": int(row.payment_count)}
+            for row in rows
+        ],
     }

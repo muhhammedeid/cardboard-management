@@ -280,6 +280,32 @@ class TestCardboardSupplierPayment(FrappeTestCase):
 		invoice.reload()
 		self.assertEqual(flt(invoice.outstanding_amount), flt(invoice.grand_total) - 200)
 
+	def test_partial_payment_retry_preserves_outstanding_and_final_settlement(self):
+		"""A retry must reuse the linked native entry, never allocate twice."""
+		supplier = self.make_supplier()
+		invoice = self.make_purchase_invoice(supplier=supplier, qty=1, rate=100)
+
+		partial = self.make_payment(supplier=supplier, amount=10).insert()
+		partial.submit()
+		partial_entry = partial.payment_entry
+		entry_count = frappe.db.count("Payment Entry", {"party": supplier})
+		invoice.reload()
+		self.assertEqual(flt(invoice.outstanding_amount), 90)
+
+		# Simulate a recovered submit request that re-enters the wrapper hook.
+		retry = frappe.get_doc("Cardboard Supplier Payment", partial.name)
+		retry.docstatus = 0
+		retry.on_submit()
+		invoice.reload()
+		self.assertEqual(flt(invoice.outstanding_amount), 90)
+		self.assertEqual(frappe.db.count("Payment Entry", {"party": supplier}), entry_count)
+		self.assertEqual(retry.payment_entry, partial_entry)
+
+		final_payment = self.make_payment(supplier=supplier, amount=90).insert()
+		final_payment.submit()
+		invoice.reload()
+		self.assertEqual(flt(invoice.outstanding_amount), 0)
+
 	def test_permissions_surface_matches_accounts_roles(self):
 		roles = {p.role for p in frappe.get_meta("Cardboard Supplier Payment").permissions}
 		self.assertEqual(roles, {"Accounts User", "Accounts Manager", "Cardboard Operator"})
