@@ -318,6 +318,8 @@ def cancel_supply(name):
 
 
 def _capture(name, fieldname, weight):
+    from cardboard_management.rounding import round_kg
+
     doc = _require_read(name)
     if doc.docstatus != 0:
         _error("invalid_state", _("Scale capture is available for Draft supplies only"))
@@ -327,6 +329,9 @@ def _capture(name, fieldname, weight):
     weight = flt(weight)
     if weight < 0:
         _error("scale_error", _("Captured weight cannot be negative"), field=fieldname)
+    # P05-UAT-FIX04: captured scale values are stored as whole kilograms so the
+    # whole operational flow sees the same integer inputs the ticket prints.
+    weight = round_kg(weight)
     doc.set(fieldname, weight)
     doc.save()
     return {"field": fieldname, "weight": weight, "supply": _serialize(doc, detail=True)}

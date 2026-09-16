@@ -1,4 +1,6 @@
-# AI Read-Only Assistant Threat Model
+# AI Read-Only Assistant Threat Model (Semantic Query Engine, V3)
+
+Historical note: sections describing the V2 multi-step tool loop (max 4 tool steps) are superseded by the V3 single semantic-interpretation flow.
 
 ## Trust model
 
@@ -12,7 +14,7 @@ The model is an untrusted language interface. Cardboard/ERPNext services are the
 | Entity names | Wrong record inference | Deterministic backend lookup | Exactly one authorized match continues; multiple matches ask one clarification question. |
 | Numeric facts | Hallucinated calculation, substitution, inconsistent rounding | Structured authoritative `facts`; backend-only business calculation; final-answer grounding validation | No fact means no number in answer. |
 | Session / feature availability | Unauthorized use or record enumeration | authenticated Frappe session and `can_use_ai_assistant` flag | No disclosure whether inaccessible record exists. |
-| Provider request | Secret leakage or privacy-routing downgrade | Server-only secret, Zero Data Retention compatible routing, data collection disabled, provider allowlist | Fail closed if configured privacy routing cannot be honored. |
+| Provider request | Secret leakage or privacy-routing downgrade | Server-only secret, Zero Data Retention compatible privacy-filtered dynamic routing, data collection disabled, required tool parameters | Fail closed if configured privacy routing cannot be honored. |
 | Audit log | Storage of business content/audio | 30-day metadata allowlist | Do not persist prompt, transcript, answer, tool arguments/results, audio, supplier names, or business values by default. |
 | Voice input | Oversize/MIME abuse/persisted audio | strict MIME, duration, and byte-size allowlists; no Frappe File | Reject safely and do not persist audio. |
 | Transport | SSE buffering/disconnect/cancellation failure | SSE spike before dependency; standard request/response JSON fallback | Streaming cannot block V1 delivery. |
@@ -33,7 +35,7 @@ Expected behavior is deterministic: refusal, bounded result, no-result response,
 
 ## Cost and availability controls
 
-The server enforces maximum messages per request, maximum tool steps = 4, maximum rows/page/date range, maximum tokens, per-user rate limit, maximum concurrent requests per user, and a global daily AI budget. Provider-side budget controls are a second line of defense, not the only one.
+The server enforces maximum messages per request, exactly one semantic interpretation call per turn plus mandatory validation and one bounded query execution (query patch included), per-tool bounded rows, ranking, aggregation and date range, maximum tokens, per-user rate limit, maximum concurrent requests per user, and a global daily AI budget. Provider-side budget controls are a second line of defense, not the only one.
 
 ## Telemetry and retention
 
@@ -41,7 +43,7 @@ Retain approved metadata for 30 days only:
 
 - user, timestamp, status, tool names, correlation id;
 - model, provider, tool count, input tokens, output tokens, estimated cost, error code;
-- `stt_latency_ms`, `planner_latency_ms`, `tool_latency_ms`, `final_answer_latency_ms`, `tts_latency_ms`, and `total_latency_ms` where applicable.
+- `stt_latency_ms`, `interpretation_latency_ms`, `query_latency_ms`, `formatting_latency_ms`, `tts_latency_ms`, and `total_latency_ms` where applicable.
 
 Production logging does not retain user prompt, transcript, assistant answer, tool arguments, raw tool results, audio, supplier/customer names, or business values. Expanded diagnostics require an explicit debug setting and are never the production default.
 

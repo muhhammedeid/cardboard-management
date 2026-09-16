@@ -4,6 +4,8 @@ from frappe.model.document import Document
 from frappe.utils import cint, flt, getdate, nowdate
 from frappe.utils.nestedset import get_descendants_of
 
+from cardboard_management.rounding import round_kg, round_money_to_5
+
 
 class CardboardSupply(Document):
 	VALID_DISCOUNT_TYPES = ("No Discount", "Kg", "Percentage")
@@ -198,9 +200,8 @@ class CardboardSupply(Document):
 			frappe.throw(_("Rate per Kg cannot be negative"))
 
 	def calculate_net_weight(self):
-		self.net_weight = flt(
-			flt(self.gross_weight) - flt(self.tare_weight), self.precision("net_weight")
-		)
+		# P05-UAT-FIX04: operational weights are whole kilograms (HALF-UP).
+		self.net_weight = round_kg(flt(self.gross_weight) - flt(self.tare_weight))
 		if self.net_weight <= 0:
 			frappe.throw(_("Net Weight must be greater than zero"))
 
@@ -223,22 +224,21 @@ class CardboardSupply(Document):
 			self.discount_value = 0
 			self.discount_weight = 0
 		elif self.discount_type == "Kg":
-			self.discount_weight = flt(discount_value, self.precision("discount_weight"))
+			# Decimal Kg input is normalized to whole Kg with the same policy.
+			self.discount_weight = round_kg(discount_value)
 		else:
-			self.discount_weight = flt(
-				self.net_weight * discount_value / 100, self.precision("discount_weight")
-			)
+			# Percentage discount rounds once here; payable then subtracts the
+			# authoritative rounded weight (never the raw fraction).
+			self.discount_weight = round_kg(self.net_weight * discount_value / 100)
 
-		self.payable_weight = flt(
-			self.net_weight - self.discount_weight, self.precision("payable_weight")
-		)
+		self.payable_weight = round_kg(self.net_weight - self.discount_weight)
 		if self.payable_weight <= 0:
 			frappe.throw(_("Payable Weight must be greater than zero"))
 
 	def calculate_total_amount(self):
-		self.total_amount = flt(
-			self.payable_weight * flt(self.rate_per_kg), self.precision("total_amount")
-		)
+		# P05-UAT-FIX04: money in whole EGP multiples of 5, Decimal-safe, and only
+		# after the authoritative payable weight is final.
+		self.total_amount = round_money_to_5(flt(self.payable_weight) * flt(self.rate_per_kg))
 
 	def create_purchase_invoice(self):
 		if self.docstatus != 1:

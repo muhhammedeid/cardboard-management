@@ -22,13 +22,13 @@ class TestAiAssistantContractDocs(unittest.TestCase):
 	def test_only_approved_model_stack_is_documented(self):
 		text = self.read_all_docs()
 		for marker in (
-			"openai/whisper-large-v3-turbo",
-			"google/gemini-2.5-flash-lite",
-			"openai/gpt-4o-mini-tts-2025-12-15",
+			"openai/whisper-large-v3",
+			"deepseek/deepseek-v4-flash-0731",
+			"google/gemini-3.1-flash-tts-preview",
 		):
 			self.assertIn(marker, text)
-		self.assertIn("`google/gemini-2.5-flash-lite` is the only V1 default conversation model", text)
-		self.assertIn("Do not configure `google/gemini-2.5-flash` as the default", text)
+		self.assertIn("`ai_chat_model`", text)
+		self.assertIn("`ai_stt_model`", text)
 
 	def test_read_scope_is_equal_but_still_bounded_and_read_only(self):
 		text = self.read_all_docs()
@@ -41,7 +41,7 @@ class TestAiAssistantContractDocs(unittest.TestCase):
 			"Company",
 			"Warehouse",
 			"Cardboard Item Group",
-			"server-owned, schema-validated read tools",
+			"semantic validator allowlists",
 			"No write permission",
 		):
 			self.assertIn(marker, text)
@@ -50,12 +50,12 @@ class TestAiAssistantContractDocs(unittest.TestCase):
 		text = self.read_all_docs()
 		for marker in (
 			'"facts"',
-			'"id": "supplier_outstanding"',
-			'"value": 153250',
-			"Authoritative values must originate from Cardboard/ERPNext backend tools",
+			'"id": "total.payable_weight_tons"',
+			'"value": 11.498',
+			"Authoritative values must originate from Cardboard/ERPNext backend services",
 			"must not independently calculate",
-			"No business calculations in Gemini, Vue, or prompt logic",
-			"correspond to authoritative tool facts",
+			"rejects answers whose numeric tokens are not traceable",
+			"rejects answers whose numeric tokens are not traceable",
 		):
 			self.assertIn(marker, text)
 
@@ -75,21 +75,27 @@ class TestAiAssistantContractDocs(unittest.TestCase):
 	def test_privacy_logging_limits_and_delivery_fallbacks_are_binding(self):
 		text = self.read_all_docs()
 		for marker in (
-			"Zero Data Retention compatible routing",
+			"Zero Data Retention compatible privacy-filtered dynamic routing",
 			"data collection disabled",
-			"provider allowlist",
+			"privacy-filtered dynamic routing",
+			"require_parameters",
+			"provider_only: null",
 			"Do not persist prompt, transcript, answer, tool arguments/results, audio",
 			"30 days",
-			"maximum tool steps = 4",
+			"exactly one semantic interpretation call",
 			"global daily AI budget",
 			"SSE spike",
 			"standard request/response JSON",
 			"Text Assistant Before Voice Dependency",
 			"Voice Input + Text Output",
 			"stt_latency_ms",
+			"interpretation_latency_ms",
+			"interpretation_latency_ms",
 			"total_latency_ms",
 		):
 			self.assertIn(marker, text)
+		self.assertNotIn("allow_fallbacks: false", text)
+		self.assertNotIn("openrouter_provider_allowlist", text)
 
 
 if __name__ == "__main__":
